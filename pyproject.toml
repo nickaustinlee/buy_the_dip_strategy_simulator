@@ -1,0 +1,48 @@
+[tool.poetry]
+name = "buy-the-dip-strategy"
+version = "0.1.0"
+description = "A Python-based stock trading strategy simulator implementing dollar-cost averaging during market downturns"
+authors = ["Buy the Dip Strategy Team"]
+readme = "README.md"
+packages = [{include = "buy_the_dip"}]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+yfinance = "^0.2.18"
+pandas = "^2.0.0"
+pydantic = "^2.0.0"
+PyYAML = "^6.0"
+
+[tool.poetry.group.test.dependencies]
+hypothesis = "^6.0.0"
+pytest = "^7.0.0"
+pytest-cov = "^4.0.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.0.0"
+flake8 = "^6.0.0"
+mypy = "^1.0.0"
+
+[tool.poetry.scripts]
+buy-the-dip = "buy_the_dip.cli:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py313']
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

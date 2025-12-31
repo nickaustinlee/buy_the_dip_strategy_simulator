@@ -1,0 +1,18 @@
+# Buy the Dip Strategy Configuration
+# This file contains the default configuration parameters for the strategy
+
+# Stock ticker to monitor (default: SPY for S&P 500)
+ticker: "SPY"
+
+# Number of days for rolling maximum calculation (1-365)
+rolling_window_days: 90
+
+# Percentage of rolling maximum that triggers DCA (0.0-1.0)
+# 0.90 means trigger when price drops to 90% of recent high
+percentage_trigger: 0.90
+
+# Monthly dollar amount for DCA investments
+monthly_dca_amount: 2000.0
+
+# Number of days to cache price data locally
+data_cache_days: 30
