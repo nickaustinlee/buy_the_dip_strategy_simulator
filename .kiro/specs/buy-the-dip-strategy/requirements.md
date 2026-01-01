@@ -121,3 +121,15 @@ A Python-based stock trading strategy simulator that implements a "buy the dip" 
 2. WHEN the system starts, THE Strategy_Engine SHALL restore previous state from persistent storage
 3. THE Strategy_Engine SHALL save investment transactions immediately when they occur
 4. WHEN state files are corrupted or missing, THE Strategy_Engine SHALL initialize with default state and log the issue
+
+### Requirement 10: CAGR Performance Analysis
+
+**User Story:** As an analyst, I want to compare strategy performance using CAGR metrics over different time periods, so that I can make fair apples-to-apples comparisons between my buy-the-dip strategy and buy-and-hold baseline.
+
+#### Acceptance Criteria
+
+1. THE Strategy_Engine SHALL calculate full-period CAGR for both strategy and buy-and-hold over the entire analysis timespan
+2. THE Strategy_Engine SHALL calculate active-period CAGR for both strategy and buy-and-hold from first investment date to end date
+3. WHEN no investments have been made, THE Strategy_Engine SHALL return zero strategy CAGR and full buy-and-hold CAGR
+4. THE Strategy_Engine SHALL provide CAGR comparison metrics including strategy outperformance and opportunity cost analysis
+5. THE Strategy_Engine SHALL support CAGR calculations for custom date ranges specified by the user

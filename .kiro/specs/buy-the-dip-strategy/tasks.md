@@ -78,9 +78,9 @@ This implementation plan breaks down the buy-the-dip strategy into discrete codi
   - [ ]* 5.5 Write property test for portfolio calculations
     - **Property 9: Portfolio Calculation Accuracy**
     - **Validates: Requirements 8.2, 8.3, 8.4**
-
-- [ ] 6. Implement core strategy engine
-  - [ ] 6.1 Create StrategyEngine class with trigger detection
+œ
+- [x] 6. Implement core strategy engine
+  - [x] 6.1 Create StrategyEngine class with trigger detection
     - Implement price monitoring and trigger condition checking
     - Handle configuration changes and dynamic trigger updates
     - _Requirements: 3.1, 3.2, 3.3, 5.4_
@@ -101,8 +101,8 @@ This implementation plan breaks down the buy-the-dip strategy into discrete codi
     - Test chronological ordering of simultaneous triggers
     - _Requirements: 3.4_
 
-- [ ] 7. Implement data persistence and state management
-  - [ ] 7.1 Create StrategyState model and persistence methods
+- [x] 7. Implement data persistence and state management
+  - [x] 7.1 Create StrategyState model and persistence methods
     - Implement JSON serialization for system state
     - Handle state loading, saving, and corruption recovery
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
@@ -115,7 +115,7 @@ This implementation plan breaks down the buy-the-dip strategy into discrete codi
     - Test corrupted files, missing files, permission errors
     - _Requirements: 9.4_
 
-- [ ] 8. Checkpoint - Ensure core strategy logic works correctly
+- [x] 8. Checkpoint - Ensure core strategy logic works correctly
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 9. Implement CLI interface
@@ -133,21 +133,44 @@ This implementation plan breaks down the buy-the-dip strategy into discrete codi
     - Implement strategy execution loop and reporting
     - _Requirements: All requirements (integration)_
 
-- [ ] 10. Create default configuration and example files
-  - [ ] 10.1 Create default YAML configuration file
+- [ ] 11. Implement CAGR performance analysis
+  - [ ] 11.1 Create CAGRAnalysis model and CAGRAnalysisEngine
+    - Implement CAGR calculation methods and performance comparison logic
+    - Handle edge cases like no investments and missing price data
+    - _Requirements: 10.1, 10.2, 10.3, 10.4_
+
+  - [ ]* 11.2 Write property test for CAGR calculation accuracy
+    - **Property 11: CAGR Calculation Accuracy**
+    - **Validates: Requirements 10.1, 10.2**
+
+  - [ ]* 11.3 Write property test for CAGR period consistency
+    - **Property 12: CAGR Period Consistency**
+    - **Validates: Requirements 10.3, 10.4**
+
+  - [ ] 11.4 Integrate CAGR analysis into StrategyEngine
+    - Add CAGR analysis methods to strategy engine
+    - Update reporting to include CAGR metrics
+    - _Requirements: 10.5_
+
+  - [ ]* 11.5 Write unit tests for CAGR analysis edge cases
+    - Test scenarios with no investments, single investment, multiple periods
+    - _Requirements: 10.3, 10.4_
+
+- [ ] 12. Create default configuration and example files
+  - [ ] 12.1 Create default YAML configuration file
     - Provide example configuration with documented parameters
     - _Requirements: 7.2_
 
-  - [ ] 10.2 Create example usage documentation
+  - [ ] 12.2 Create example usage documentation
     - Write README with installation and usage instructions
     - Include example commands and configuration options
 
-- [ ] 11. Final integration and testing
-  - [ ]* 11.1 Write integration tests for end-to-end scenarios
+- [ ] 13. Final integration and testing
+  - [ ]* 13.1 Write integration tests for end-to-end scenarios
     - Test complete strategy execution with sample data
     - _Requirements: All requirements (integration)_
 
-  - [ ] 11.2 Final checkpoint - Ensure complete system works
+  - [ ] 13.2 Final checkpoint - Ensure complete system works
     - Run full test suite and validate all functionality
     - Ensure all tests pass, ask the user if questions arise.
 

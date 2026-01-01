@@ -8,6 +8,7 @@ import json
 import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Optional, Dict, List, Tuple, Any
 from typing import Dict, Optional
 
 from .models import PriceData
@@ -32,6 +33,74 @@ class PriceMonitor:
         self._cache_dir = Path(cache_dir)
         self._cache_dir.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Price cache directory: {self._cache_dir}")
+    
+    def _is_likely_non_trading_day(self, check_date: date) -> bool:
+        """
+        Check if a date is likely a non-trading day (weekend or common holiday).
+        
+        Args:
+            check_date: Date to check
+            
+        Returns:
+            True if likely a non-trading day
+        """
+        # Check if it's a weekend
+        if check_date.weekday() >= 5:  # Saturday = 5, Sunday = 6
+            return True
+        
+        # Check for common US holidays (simplified list)
+        year = check_date.year
+        
+        # New Year's Day
+        if check_date.month == 1 and check_date.day == 1:
+            return True
+        
+        # Independence Day
+        if check_date.month == 7 and check_date.day == 4:
+            return True
+        
+        # Christmas Day
+        if check_date.month == 12 and check_date.day == 25:
+            return True
+        
+        # Thanksgiving (4th Thursday in November) - simplified check
+        if check_date.month == 11 and check_date.weekday() == 3 and 22 <= check_date.day <= 28:
+            return True
+        
+        return False
+    
+    def _log_no_data_reason(self, ticker: str, start_date: date, end_date: date) -> None:
+        """
+        Log an appropriate message when no data is available for a date range.
+        
+        Args:
+            ticker: Stock ticker symbol
+            start_date: Start date of the range
+            end_date: End date of the range
+        """
+        # Check if the entire range consists of non-trading days
+        current_date = start_date
+        all_non_trading = True
+        
+        while current_date <= end_date:
+            if not self._is_likely_non_trading_day(current_date):
+                all_non_trading = False
+                break
+            current_date += timedelta(days=1)
+        
+        if all_non_trading:
+            if start_date == end_date:
+                day_name = start_date.strftime("%A")
+                if start_date.weekday() >= 5:
+                    logger.debug(f"No data for {ticker} on {start_date} ({day_name}) - markets closed on weekends")
+                else:
+                    logger.debug(f"No data for {ticker} on {start_date} ({day_name}) - likely a market holiday")
+            else:
+                logger.debug(f"No data for {ticker} from {start_date} to {end_date} - range contains only weekends/holidays")
+        else:
+            # Some trading days in range, but still no data - this might be more concerning
+            logger.warning(f"No price data available for {ticker} from {start_date} to {end_date} - "
+                         f"this range includes trading days, check if ticker is valid")
     
     def _get_cache_file_path(self, ticker: str) -> Path:
         """Get the cache file path for a ticker."""
@@ -139,7 +208,7 @@ class PriceMonitor:
         ranges.append((range_start, range_end))
         return ranges
     
-    def _get_yfinance(self):
+    def _get_yfinance(self) -> Any:
         """Lazy import of yfinance to avoid SSL issues during package setup."""
         if self._yf is None:
             import yfinance as yf
@@ -191,9 +260,16 @@ class PriceMonitor:
                     range_data['Date'] = range_data['Date'].dt.date
                     
                     all_new_data = pd.concat([all_new_data, range_data], ignore_index=True)
+                else:
+                    # No data returned - provide helpful context
+                    self._log_no_data_reason(ticker, range_start, range_end)
                 
             except Exception as e:
-                logger.error(f"Failed to fetch price data for {ticker} ({range_start} to {range_end}): {e}")
+                # Check if this looks like a weekend/holiday issue vs a real error
+                if self._is_likely_non_trading_day(range_start) and self._is_likely_non_trading_day(range_end):
+                    logger.debug(f"No data for {ticker} ({range_start} to {range_end}) - likely non-trading days")
+                else:
+                    logger.error(f"Failed to fetch price data for {ticker} ({range_start} to {range_end}): {e}")
         
         # Merge with cached data and save
         if cached_data is None:
@@ -215,7 +291,7 @@ class PriceMonitor:
             result = pd.DataFrame()
         
         if result.empty:
-            logger.warning(f"No price data found for {ticker} from {start_date} to {end_date}")
+            self._log_no_data_reason(ticker, start_date, end_date)
         
         return result
     
@@ -262,7 +338,16 @@ class PriceMonitor:
             data = stock.history(period="1d")
             
             if data.empty:
-                raise ValueError(f"No current price data available for {ticker}")
+                # Check if today is a non-trading day
+                today = date.today()
+                if self._is_likely_non_trading_day(today):
+                    day_name = today.strftime("%A")
+                    if today.weekday() >= 5:
+                        raise ValueError(f"No current price data for {ticker} - markets are closed on {day_name}s")
+                    else:
+                        raise ValueError(f"No current price data for {ticker} - markets appear to be closed today ({day_name}, likely a holiday)")
+                else:
+                    raise ValueError(f"No current price data available for {ticker} - check if ticker is valid")
             
             current_price = float(data['Close'].iloc[-1])
             

@@ -21,9 +21,11 @@ __all__ = [
     "StrategyEngine",
     "Transaction",
     "StrategyState",
+    "CAGRAnalysis",
+    "CAGRAnalysisEngine",
 ]
 
-def __getattr__(name):
+def __getattr__(name: str) -> type:
     """Lazy import for package components."""
     if name == "ConfigurationManager":
         from .config import ConfigurationManager
@@ -55,5 +57,11 @@ def __getattr__(name):
     elif name == "StrategyState":
         from .models import StrategyState
         return StrategyState
+    elif name == "CAGRAnalysis":
+        from .models import CAGRAnalysis
+        return CAGRAnalysis
+    elif name == "CAGRAnalysisEngine":
+        from .analysis import CAGRAnalysisEngine
+        return CAGRAnalysisEngine
     else:
         raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

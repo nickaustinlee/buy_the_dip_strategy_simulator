@@ -112,6 +112,23 @@ class StrategyEngine:
     def run_strategy(self) -> None
     def process_price_update(self, current_price: float) -> None
     def generate_report(self) -> StrategyReport
+    def calculate_cagr_analysis(self, start_date: date, end_date: date) -> CAGRAnalysis
+    def calculate_cagr(self, start_value: float, end_value: float, days: int) -> float
+```
+
+### CAGR Analysis Engine
+**Purpose**: Calculate and compare Compound Annual Growth Rate metrics for strategy vs buy-and-hold
+
+**Key Methods:**
+```python
+class CAGRAnalysisEngine:
+    def analyze_performance(self, transactions: List[Transaction], 
+                          ticker: str, start_date: date, end_date: date) -> CAGRAnalysis
+    def calculate_strategy_cagr(self, transactions: List[Transaction], 
+                              current_price: float, start_date: date, end_date: date) -> float
+    def calculate_buyhold_cagr(self, ticker: str, start_date: date, end_date: date) -> float
+    def calculate_opportunity_cost(self, full_cagr: float, active_cagr: float, 
+                                 delay_days: int, total_days: int) -> float
 ```
 
 ### CLI Interface
@@ -153,6 +170,29 @@ class StrategyState:
     all_transactions: List[Transaction]
     last_update: datetime
     price_cache: Dict[str, pd.DataFrame]
+```
+
+### CAGR Analysis Results
+```python
+class CAGRAnalysis:
+    analysis_start_date: date
+    analysis_end_date: date
+    first_investment_date: Optional[date]
+    
+    # Full period metrics (analysis_start_date to analysis_end_date)
+    full_period_days: int
+    strategy_full_period_cagr: float
+    buyhold_full_period_cagr: float
+    
+    # Active period metrics (first_investment_date to analysis_end_date)
+    active_period_days: Optional[int]
+    strategy_active_period_cagr: Optional[float]
+    buyhold_active_period_cagr: Optional[float]
+    
+    # Comparison metrics
+    full_period_outperformance: float  # strategy - buyhold
+    active_period_outperformance: Optional[float]
+    opportunity_cost: Optional[float]  # cost of waiting for first dip
 ```
 
 ## Error Handling
@@ -260,3 +300,11 @@ Based on the prework analysis and property reflection to eliminate redundancy, t
 ### Property 10: State Persistence Round-Trip
 *For any* valid system state, saving the state and then restoring it should produce an equivalent state, and transactions should be persisted immediately when they occur.
 **Validates: Requirements 9.1, 9.2, 9.3**
+
+### Property 11: CAGR Calculation Accuracy
+*For any* set of investment transactions and price data over a time period, the calculated CAGR should match the mathematical formula: CAGR = (End Value / Start Value)^(365/days) - 1, and buy-and-hold CAGR should equal the ticker's price appreciation over the same period.
+**Validates: Requirements 10.1, 10.2**
+
+### Property 12: CAGR Period Consistency
+*For any* analysis period, when the strategy has no investments, the strategy CAGR should be zero and active period should be undefined, while buy-and-hold CAGR should reflect actual ticker performance over the full period.
+**Validates: Requirements 10.3, 10.4**

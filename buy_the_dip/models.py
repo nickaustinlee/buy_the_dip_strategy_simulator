@@ -69,3 +69,35 @@ class StrategyReport(BaseModel):
     percentage_return: float
     active_sessions_count: int = Field(default=0, ge=0)
     completed_sessions_count: int = Field(default=0, ge=0)
+
+
+class CAGRAnalysis(BaseModel):
+    """Model for CAGR performance analysis comparing strategy vs buy-and-hold."""
+    
+    model_config = ConfigDict(validate_assignment=True)
+    
+    ticker: str
+    analysis_start_date: date
+    analysis_end_date: date
+    first_investment_date: Optional[date] = None
+    
+    # Full period metrics (analysis_start_date to analysis_end_date)
+    full_period_days: int = Field(gt=0)
+    strategy_full_period_cagr: float
+    buyhold_full_period_cagr: float
+    
+    # Active period metrics (first_investment_date to analysis_end_date)
+    active_period_days: Optional[int] = Field(default=None, gt=0)
+    strategy_active_period_cagr: Optional[float] = None
+    buyhold_active_period_cagr: Optional[float] = None
+    
+    # Comparison metrics
+    full_period_outperformance: float  # strategy - buyhold CAGR
+    active_period_outperformance: Optional[float] = None  # strategy - buyhold CAGR (active period)
+    opportunity_cost: Optional[float] = None  # cost of waiting for first dip (percentage points)
+    
+    # Portfolio values for CAGR calculation
+    strategy_start_value: float = Field(default=0.0, ge=0.0)
+    strategy_end_value: float = Field(ge=0.0)
+    buyhold_start_value: float = Field(gt=0.0)
+    buyhold_end_value: float = Field(gt=0.0)

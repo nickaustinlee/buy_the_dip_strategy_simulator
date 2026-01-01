@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class DCAController:
     """Manages dollar-cost averaging investment sessions."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the DCA controller."""
         self._sessions: Dict[str, DCASession] = {}
         self._transactions: List[Transaction] = []
@@ -171,7 +171,7 @@ class DCAController:
         total_shares = self.calculate_total_shares()
         return total_shares * current_price
     
-    def calculate_performance_metrics(self, current_price: float) -> dict:
+    def calculate_performance_metrics(self, current_price: float) -> Dict[str, float]:
         """
         Calculate performance metrics including total return and percentage gain/loss.
         
