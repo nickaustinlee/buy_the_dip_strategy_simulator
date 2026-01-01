@@ -1,0 +1,23 @@
+# =============================================================================
+# Conservative Buy the Dip Strategy Configuration
+# =============================================================================
+# This configuration implements a more conservative approach:
+# - Longer rolling window to avoid short-term volatility
+# - Lower trigger threshold (bigger drops required)
+# - Smaller monthly investment amount
+# =============================================================================
+
+# Monitor the S&P 500 via SPY ETF
+ticker: "SPY"
+
+# Use 6-month rolling window for more stable baseline
+rolling_window_days: 180
+
+# Only trigger on 15% drops (more conservative)
+percentage_trigger: 0.85
+
+# Smaller monthly investment for conservative approach
+monthly_dca_amount: 1000.0
+
+# Cache data for 3 months
+data_cache_days: 90

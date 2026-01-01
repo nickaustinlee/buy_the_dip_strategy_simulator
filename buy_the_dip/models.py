@@ -69,6 +69,10 @@ class StrategyReport(BaseModel):
     percentage_return: float
     active_sessions_count: int = Field(default=0, ge=0)
     completed_sessions_count: int = Field(default=0, ge=0)
+    
+    # CAGR Analysis metrics
+    cagr_analysis: Optional["CAGRAnalysis"] = None
+    analysis_period_days: Optional[int] = None
 
 
 class CAGRAnalysis(BaseModel):

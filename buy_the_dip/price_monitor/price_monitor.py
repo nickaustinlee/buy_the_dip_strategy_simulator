@@ -212,6 +212,18 @@ class PriceMonitor:
         """Lazy import of yfinance to avoid SSL issues during package setup."""
         if self._yf is None:
             import yfinance as yf
+            
+            # Suppress yfinance logging unless we're in debug mode
+            yf_logger = logging.getLogger('yfinance')
+            current_level = logger.getEffectiveLevel()
+            
+            if current_level > logging.DEBUG:
+                # Suppress yfinance errors/warnings unless we're in debug mode
+                yf_logger.setLevel(logging.CRITICAL)
+            else:
+                # In debug mode, allow yfinance logging
+                yf_logger.setLevel(logging.DEBUG)
+            
             self._yf = yf
         return self._yf
     

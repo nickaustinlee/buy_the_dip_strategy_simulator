@@ -1,18 +1,73 @@
-# Buy the Dip Strategy Configuration
-# This file contains the default configuration parameters for the strategy
+# =============================================================================
+# Buy the Dip Strategy - Default Configuration
+# =============================================================================
+# This file contains the default configuration parameters for the buy-the-dip
+# trading strategy simulator. Modify these values to customize your strategy.
+#
+# For more information, see the README.md file or run:
+#   python buy_the_dip.py --help
+# =============================================================================
 
-# Stock ticker to monitor (default: SPY for S&P 500)
+# -----------------------------------------------------------------------------
+# Stock Selection
+# -----------------------------------------------------------------------------
+# The stock ticker symbol to monitor for the strategy
+# Common options:
+#   - "SPY": SPDR S&P 500 ETF (tracks S&P 500 index)
+#   - "QQQ": Invesco QQQ Trust (tracks NASDAQ-100)
+#   - "VTI": Vanguard Total Stock Market ETF
+#   - "AAPL", "MSFT", etc.: Individual stocks
 ticker: "SPY"
 
-# Number of days for rolling maximum calculation (1-365)
+# -----------------------------------------------------------------------------
+# Rolling Maximum Window
+# -----------------------------------------------------------------------------
+# Number of days to look back when calculating the rolling maximum price
+# This determines the "recent high" that triggers are calculated from
+# 
+# Range: 1-365 days
+# Recommendations:
+#   - 30 days: More sensitive to short-term dips
+#   - 90 days: Balanced approach (default)
+#   - 180 days: Less sensitive, catches major corrections
 rolling_window_days: 90
 
-# Percentage of rolling maximum that triggers DCA (0.0-1.0)
-# 0.90 means trigger when price drops to 90% of recent high
+# -----------------------------------------------------------------------------
+# Trigger Threshold
+# -----------------------------------------------------------------------------
+# Percentage of the rolling maximum that triggers dollar-cost averaging
+# When current price drops below (rolling_max * percentage_trigger), DCA starts
+#
+# Range: 0.0-1.0 (0% to 100%)
+# Examples:
+#   - 0.95: Trigger on 5% drop from recent high (very sensitive)
+#   - 0.90: Trigger on 10% drop from recent high (default)
+#   - 0.85: Trigger on 15% drop from recent high (less sensitive)
+#   - 0.80: Trigger on 20% drop from recent high (major corrections only)
 percentage_trigger: 0.90
 
-# Monthly dollar amount for DCA investments
+# -----------------------------------------------------------------------------
+# Dollar-Cost Averaging Amount
+# -----------------------------------------------------------------------------
+# Monthly dollar amount to invest during active DCA periods
+# This amount will be "invested" each month while the strategy is active
+#
+# Must be greater than 0
+# Examples:
+#   - 500.0: $500 per month
+#   - 1000.0: $1,000 per month  
+#   - 2000.0: $2,000 per month (default)
 monthly_dca_amount: 2000.0
 
-# Number of days to cache price data locally
+# -----------------------------------------------------------------------------
+# Data Caching
+# -----------------------------------------------------------------------------
+# Number of days to cache price data locally to reduce API calls
+# Larger values reduce API usage but may use more disk space
+#
+# Range: 1+ days
+# Recommendations:
+#   - 30: Good balance for daily use
+#   - 90: Reduce API calls for frequent testing
+#   - 365: Maximum caching for development
 data_cache_days: 30

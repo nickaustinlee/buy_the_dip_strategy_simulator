@@ -137,3 +137,9 @@ dmypy.json
 # OS
 .DS_Store
 Thumbs.db
+# Buy-the-dip strategy specific
+.buy_the_dip/
+price_cache/
+strategy_state.json
+strategy_state.json.backup
+*.state

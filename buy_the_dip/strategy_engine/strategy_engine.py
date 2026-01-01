@@ -289,28 +289,31 @@ class StrategyEngine:
                     f"Current: ${current_price:.2f}, Trigger: ${trigger_price:.2f}"
                 )
         else:
-            # Not in buy-the-dip territory
+            # Not in buy-the-dip territory - current price is above trigger
+            # Calculate how far above trigger we are as a percentage
             distance_to_trigger = ((trigger_price - current_price) / current_price) * 100
+            # This will be negative when current > trigger, so we need the absolute value for display
+            distance_percentage = abs(distance_to_trigger)
             
-            if distance_to_trigger <= 2:  # Very close to trigger
+            if -2 <= distance_to_trigger < 0:  # Very close to trigger (within 2%)
                 return (
                     "MONITOR", 
                     "HIGH", 
-                    f"⚠️  WATCH CLOSELY! Price is only {distance_to_trigger:.1f}% above trigger. "
+                    f"⚠️  WATCH CLOSELY! Price is {distance_percentage:.1f}% above trigger price. "
                     f"Current: ${current_price:.2f}, Trigger: ${trigger_price:.2f}"
                 )
-            elif distance_to_trigger <= 5:  # Moderately close
+            elif -5 <= distance_to_trigger < -2:  # Moderately close (2-5% above trigger)
                 return (
                     "MONITOR", 
                     "MEDIUM", 
-                    f"👀 MONITOR! Price is {distance_to_trigger:.1f}% above trigger threshold. "
+                    f"👀 MONITOR! Price is {distance_percentage:.1f}% above trigger price. "
                     f"Current: ${current_price:.2f}, Trigger: ${trigger_price:.2f}"
                 )
-            else:  # Far from trigger
+            else:  # Far from trigger (more than 5% above)
                 return (
                     "HOLD", 
                     "LOW", 
-                    f"😌 HOLD! Price is {distance_to_trigger:.1f}% above trigger. Market looks stable. "
+                    f"😌 HOLD! Price is {distance_percentage:.1f}% above trigger price. Market looks stable. "
                     f"Current: ${current_price:.2f}, Trigger: ${trigger_price:.2f}"
                 )
     
@@ -363,9 +366,13 @@ class StrategyEngine:
             logger.error(f"Error during strategy execution: {e}")
             raise
     
-    def generate_report(self) -> StrategyReport:
+    def generate_report(self, include_cagr: bool = True, cagr_start_date: Optional[date] = None) -> StrategyReport:
         """
         Generate a strategy performance report.
+        
+        Args:
+            include_cagr: Whether to include CAGR analysis in the report
+            cagr_start_date: Start date for CAGR analysis (defaults to 1 year ago)
         
         Returns:
             Strategy report with performance metrics
@@ -385,6 +392,31 @@ class StrategyEngine:
             all_sessions = list(self.dca_controller._sessions.values())
             completed_sessions = [s for s in all_sessions if s.state == DCAState.COMPLETED]
             
+            # Calculate CAGR analysis if requested
+            cagr_analysis = None
+            analysis_period_days = None
+            
+            if include_cagr:
+                try:
+                    # Default to 1 year analysis period if not specified
+                    if cagr_start_date is None:
+                        cagr_start_date = date.today() - timedelta(days=365)
+                    
+                    end_date = date.today()
+                    analysis_period_days = (end_date - cagr_start_date).days
+                    
+                    cagr_analysis = self.calculate_cagr_analysis(
+                        start_date=cagr_start_date,
+                        end_date=end_date,
+                        current_price=current_price
+                    )
+                    
+                    logger.info(f"CAGR analysis included for period {cagr_start_date} to {end_date}")
+                    
+                except Exception as e:
+                    logger.warning(f"Could not calculate CAGR analysis: {e}")
+                    # Continue without CAGR analysis rather than failing the entire report
+            
             return StrategyReport(
                 ticker=self.config.ticker,
                 total_invested=metrics['total_invested'],
@@ -393,7 +425,9 @@ class StrategyEngine:
                 total_return=metrics['total_return'],
                 percentage_return=metrics['percentage_return'],
                 active_sessions_count=len(active_sessions),
-                completed_sessions_count=len(completed_sessions)
+                completed_sessions_count=len(completed_sessions),
+                cagr_analysis=cagr_analysis,
+                analysis_period_days=analysis_period_days
             )
             
         except Exception as e:
@@ -450,3 +484,64 @@ class StrategyEngine:
             CAGR as decimal (e.g., 0.10 for 10%)
         """
         return self.cagr_engine._calculate_cagr(start_value, end_value, days)
+    
+    def format_comprehensive_report(self, report: StrategyReport) -> str:
+        """
+        Format a comprehensive report including CAGR analysis.
+        
+        Args:
+            report: Strategy report to format
+            
+        Returns:
+            Formatted report string
+        """
+        lines = []
+        lines.append(f"📊 Buy-the-Dip Strategy Report for {report.ticker}")
+        lines.append("=" * 60)
+        
+        # Basic performance metrics
+        lines.append("\n💰 Portfolio Summary:")
+        lines.append(f"  Total Invested: ${report.total_invested:,.2f}")
+        lines.append(f"  Total Shares: {report.total_shares:,.4f}")
+        lines.append(f"  Current Value: ${report.current_value:,.2f}")
+        lines.append(f"  Total Return: ${report.total_return:,.2f}")
+        lines.append(f"  Percentage Return: {report.percentage_return:.2%}")
+        
+        # Session information
+        lines.append(f"\n📈 DCA Sessions:")
+        lines.append(f"  Active Sessions: {report.active_sessions_count}")
+        lines.append(f"  Completed Sessions: {report.completed_sessions_count}")
+        
+        # CAGR Analysis if available
+        if report.cagr_analysis:
+            lines.append(f"\n🎯 CAGR Performance Analysis ({report.analysis_period_days} days):")
+            cagr = report.cagr_analysis
+            
+            lines.append(f"  Analysis Period: {cagr.analysis_start_date} to {cagr.analysis_end_date}")
+            
+            if cagr.first_investment_date:
+                delay_days = (cagr.first_investment_date - cagr.analysis_start_date).days
+                lines.append(f"  First Investment: {cagr.first_investment_date} ({delay_days} days after start)")
+            else:
+                lines.append(f"  No investments made during analysis period")
+            
+            lines.append(f"\n  📊 Full Period Performance:")
+            if cagr.strategy_full_period_cagr == 0.0 and not cagr.first_investment_date:
+                lines.append(f"    Strategy CAGR: {cagr.strategy_full_period_cagr:.2%} (no positions opened)")
+            else:
+                lines.append(f"    Strategy CAGR: {cagr.strategy_full_period_cagr:.2%}")
+            lines.append(f"    Buy-Hold CAGR: {cagr.buyhold_full_period_cagr:.2%}")
+            lines.append(f"    Outperformance: {cagr.full_period_outperformance:+.2%}")
+            
+            if cagr.strategy_active_period_cagr is not None:
+                lines.append(f"\n  🔄 Active Period Performance (Apples-to-Apples):")
+                lines.append(f"    Strategy CAGR: {cagr.strategy_active_period_cagr:.2%}")
+                lines.append(f"    Buy-Hold CAGR: {cagr.buyhold_active_period_cagr:.2%}")
+                lines.append(f"    Outperformance: {cagr.active_period_outperformance:+.2%}")
+                lines.append(f"    Active Days: {cagr.active_period_days}")
+            
+            if cagr.opportunity_cost is not None:
+                lines.append(f"\n  ⏰ Opportunity Cost: {cagr.opportunity_cost:+.2%}")
+                lines.append(f"    (Cost of waiting for dip vs immediate investment)")
+        
+        return "\n".join(lines)

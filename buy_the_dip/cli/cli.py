@@ -75,6 +75,13 @@ def main() -> None:
     logger = logging.getLogger(__name__)
     
     try:
+        # Validate config file exists if specified
+        if args.config:
+            config_path = Path(args.config)
+            if not config_path.exists():
+                logger.error(f"Configuration file not found: {args.config}")
+                sys.exit(1)
+        
         # Load configuration
         config_manager = ConfigurationManager()
         config = config_manager.load_config(args.config)
@@ -118,17 +125,17 @@ def main() -> None:
                 print(f"\n🚨 ACTION REQUIRED: Consider investing your DCA amount of ${config.monthly_dca_amount:.2f}")
             else:
                 distance_to_trigger = ((status.trigger_price - status.current_price) / status.current_price) * 100
-                print(f"\n📊 Price needs to drop {distance_to_trigger:.1f}% to trigger buy signal")
+                distance_percentage = abs(distance_to_trigger)
+                print(f"\n📊 Price needs to drop by {distance_percentage:.1f}% to trigger buy signal")
             
             return
         
         if args.report:
-            report = engine.generate_report()
-            logger.info(f"Strategy Report for {report.ticker}:")
-            logger.info(f"  Total Invested: ${report.total_invested:.2f}")
-            logger.info(f"  Total Shares: {report.total_shares:.4f}")
-            logger.info(f"  Current Value: ${report.current_value:.2f}")
-            logger.info(f"  Total Return: ${report.total_return:.2f} ({report.percentage_return:.2%})")
+            report = engine.generate_report(include_cagr=True)
+            
+            # Use the comprehensive formatted report
+            formatted_report = engine.format_comprehensive_report(report)
+            print(formatted_report)
         else:
             # Run the strategy
             engine.run_strategy()

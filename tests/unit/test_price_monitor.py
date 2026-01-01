@@ -317,7 +317,7 @@ class TestPriceMonitor:
         monitor._get_yfinance = Mock(return_value=mock_yf)
         
         # Test current price - should raise exception
-        with pytest.raises(ValueError, match="No current price data available"):
+        with pytest.raises(ValueError, match="No current price data for"):
             monitor.get_current_price('INVALID')
     
     def test_get_current_price_exception_handling(self, temp_cache_dir):

@@ -1,0 +1,23 @@
+# =============================================================================
+# Aggressive Buy the Dip Strategy Configuration
+# =============================================================================
+# This configuration implements a more aggressive approach:
+# - Shorter rolling window for quicker response
+# - Higher trigger threshold (smaller drops trigger)
+# - Larger monthly investment amount
+# =============================================================================
+
+# Monitor the NASDAQ-100 via QQQ ETF (more volatile)
+ticker: "QQQ"
+
+# Use 1-month rolling window for quick response
+rolling_window_days: 30
+
+# Trigger on just 5% drops (very aggressive)
+percentage_trigger: 0.95
+
+# Larger monthly investment for aggressive approach
+monthly_dca_amount: 3000.0
+
+# Cache data for 1 month
+data_cache_days: 30

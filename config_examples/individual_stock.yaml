@@ -1,0 +1,21 @@
+# =============================================================================
+# Individual Stock Buy the Dip Strategy Configuration
+# =============================================================================
+# This configuration shows how to apply the strategy to individual stocks
+# Note: Individual stocks are more volatile than ETFs
+# =============================================================================
+
+# Monitor Apple stock (example individual stock)
+ticker: "AAPL"
+
+# Use 2-month rolling window for individual stocks
+rolling_window_days: 60
+
+# Trigger on 12% drops (balanced for individual stocks)
+percentage_trigger: 0.88
+
+# Standard monthly investment
+monthly_dca_amount: 1500.0
+
+# Cache data for 2 months
+data_cache_days: 60

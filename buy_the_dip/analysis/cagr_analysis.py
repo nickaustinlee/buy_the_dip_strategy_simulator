@@ -265,7 +265,10 @@ class CAGRAnalysisEngine:
         
         report.append("")
         report.append("Full Period Performance:")
-        report.append(f"  Strategy CAGR: {analysis.strategy_full_period_cagr:.2%}")
+        if analysis.strategy_full_period_cagr == 0.0 and analysis.first_investment_date is None:
+            report.append(f"  Strategy CAGR: {analysis.strategy_full_period_cagr:.2%} (no positions opened during period)")
+        else:
+            report.append(f"  Strategy CAGR: {analysis.strategy_full_period_cagr:.2%}")
         report.append(f"  Buy-Hold CAGR: {analysis.buyhold_full_period_cagr:.2%}")
         report.append(f"  Outperformance: {analysis.full_period_outperformance:+.2%}")
         

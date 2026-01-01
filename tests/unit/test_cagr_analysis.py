@@ -171,6 +171,36 @@ class TestCAGRAnalysisEngine(unittest.TestCase):
         self.assertIn("12.00%", report)  # Buy-hold CAGR
         self.assertIn("-4.00%", report)  # Outperformance
         self.assertIn("Opportunity Cost", report)
+    
+    def test_format_cagr_report_no_investments(self):
+        """Test CAGR report formatting when no investments were made."""
+        analysis = CAGRAnalysis(
+            ticker="SPY",
+            analysis_start_date=date(2023, 1, 1),
+            analysis_end_date=date(2023, 12, 31),
+            first_investment_date=None,  # No investments
+            full_period_days=365,
+            strategy_full_period_cagr=0.0,  # 0% due to no investments
+            buyhold_full_period_cagr=0.12,
+            active_period_days=None,
+            strategy_active_period_cagr=None,
+            buyhold_active_period_cagr=None,
+            full_period_outperformance=-0.12,
+            active_period_outperformance=None,
+            opportunity_cost=None,
+            strategy_start_value=0.0,
+            strategy_end_value=0.0,
+            buyhold_start_value=1000.0,
+            buyhold_end_value=1120.0
+        )
+        
+        report = self.cagr_engine.format_cagr_report(analysis)
+        
+        # Verify report contains clarification for no investments
+        self.assertIn("SPY", report)
+        self.assertIn("0.00% (no positions opened during period)", report)
+        self.assertIn("No investments made during period", report)
+        self.assertIn("12.00%", report)  # Buy-hold CAGR
 
 
 if __name__ == '__main__':

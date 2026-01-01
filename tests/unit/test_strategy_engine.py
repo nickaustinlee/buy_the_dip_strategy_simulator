@@ -338,3 +338,155 @@ class TestStrategyEngine:
                 confidence_level="HIGH",
                 message="Test message"
             )
+    
+    def test_generate_report_with_cagr(self, engine_with_mock_data):
+        """Test report generation with CAGR analysis."""
+        from buy_the_dip.models import CAGRAnalysis
+        from datetime import date
+        
+        engine, prices = engine_with_mock_data
+        
+        # Mock the DCA controller methods
+        with patch.object(engine.dca_controller, 'calculate_performance_metrics') as mock_metrics, \
+             patch.object(engine.dca_controller, 'get_active_sessions') as mock_active, \
+             patch.object(engine, 'calculate_cagr_analysis') as mock_cagr:
+            
+            mock_metrics.return_value = {
+                'total_invested': 2000.0,
+                'total_shares': 16.67,
+                'portfolio_value': 2000.4,
+                'total_return': 0.4,
+                'percentage_return': 0.0002
+            }
+            mock_active.return_value = []
+            engine.dca_controller._sessions = {}
+            
+            # Create a proper CAGRAnalysis instance
+            cagr_analysis = CAGRAnalysis(
+                ticker="SPY",
+                analysis_start_date=date(2023, 1, 1),
+                analysis_end_date=date(2023, 12, 31),
+                full_period_days=365,
+                strategy_full_period_cagr=0.08,
+                buyhold_full_period_cagr=0.12,
+                full_period_outperformance=-0.04,
+                strategy_start_value=0.0,
+                strategy_end_value=2160.0,
+                buyhold_start_value=2000.0,
+                buyhold_end_value=2240.0
+            )
+            mock_cagr.return_value = cagr_analysis
+            
+            report = engine.generate_report(include_cagr=True)
+        
+        # Verify report includes CAGR analysis
+        assert report.cagr_analysis is not None
+        assert report.cagr_analysis.ticker == "SPY"
+        assert report.analysis_period_days is not None
+    
+    def test_generate_report_without_cagr(self, engine_with_mock_data):
+        """Test report generation without CAGR analysis."""
+        engine, prices = engine_with_mock_data
+        
+        # Mock the DCA controller methods
+        with patch.object(engine.dca_controller, 'calculate_performance_metrics') as mock_metrics, \
+             patch.object(engine.dca_controller, 'get_active_sessions') as mock_active:
+            
+            mock_metrics.return_value = {
+                'total_invested': 2000.0,
+                'total_shares': 16.67,
+                'portfolio_value': 2000.4,
+                'total_return': 0.4,
+                'percentage_return': 0.0002
+            }
+            mock_active.return_value = []
+            engine.dca_controller._sessions = {}
+            
+            report = engine.generate_report(include_cagr=False)
+        
+        # Verify report does not include CAGR analysis
+        assert report.cagr_analysis is None
+        assert report.analysis_period_days is None
+    
+    def test_format_comprehensive_report(self, engine_with_mock_data):
+        """Test comprehensive report formatting."""
+        from datetime import date
+        
+        engine, prices = engine_with_mock_data
+        
+        # Create a mock report with CAGR analysis
+        mock_cagr = Mock()
+        mock_cagr.ticker = "SPY"
+        mock_cagr.analysis_start_date = date(2023, 1, 1)
+        mock_cagr.analysis_end_date = date(2023, 12, 31)
+        mock_cagr.first_investment_date = date(2023, 6, 1)
+        mock_cagr.strategy_full_period_cagr = 0.08
+        mock_cagr.buyhold_full_period_cagr = 0.12
+        mock_cagr.full_period_outperformance = -0.04
+        mock_cagr.strategy_active_period_cagr = 0.15
+        mock_cagr.buyhold_active_period_cagr = 0.10
+        mock_cagr.active_period_outperformance = 0.05
+        mock_cagr.active_period_days = 214
+        mock_cagr.opportunity_cost = -0.04
+        
+        mock_report = Mock()
+        mock_report.ticker = "SPY"
+        mock_report.total_invested = 2000.0
+        mock_report.total_shares = 16.67
+        mock_report.current_value = 2000.4
+        mock_report.total_return = 0.4
+        mock_report.percentage_return = 0.0002
+        mock_report.active_sessions_count = 1
+        mock_report.completed_sessions_count = 0
+        mock_report.cagr_analysis = mock_cagr
+        mock_report.analysis_period_days = 365
+        
+        formatted_report = engine.format_comprehensive_report(mock_report)
+        
+        # Verify key elements are in the formatted report
+        assert "Buy-the-Dip Strategy Report for SPY" in formatted_report
+        assert "Total Invested: $2,000.00" in formatted_report
+        assert "Strategy CAGR: 8.00%" in formatted_report
+        assert "Buy-Hold CAGR: 12.00%" in formatted_report
+        assert "Outperformance: -4.00%" in formatted_report
+        assert "Active Period Performance" in formatted_report
+        assert "Opportunity Cost: -4.00%" in formatted_report
+    
+    def test_format_comprehensive_report_no_investments(self, engine_with_mock_data):
+        """Test comprehensive report formatting when no investments were made."""
+        from datetime import date
+        
+        engine, prices = engine_with_mock_data
+        
+        # Create a mock report with no investments (CAGR = 0, no first investment date)
+        mock_cagr = Mock()
+        mock_cagr.ticker = "SPY"
+        mock_cagr.analysis_start_date = date(2023, 1, 1)
+        mock_cagr.analysis_end_date = date(2023, 12, 31)
+        mock_cagr.first_investment_date = None  # No investments made
+        mock_cagr.strategy_full_period_cagr = 0.0  # 0% CAGR due to no investments
+        mock_cagr.buyhold_full_period_cagr = 0.12
+        mock_cagr.full_period_outperformance = -0.12
+        mock_cagr.strategy_active_period_cagr = None
+        mock_cagr.buyhold_active_period_cagr = None
+        mock_cagr.active_period_outperformance = None
+        mock_cagr.active_period_days = None
+        mock_cagr.opportunity_cost = None
+        
+        mock_report = Mock()
+        mock_report.ticker = "SPY"
+        mock_report.total_invested = 0.0
+        mock_report.total_shares = 0.0
+        mock_report.current_value = 0.0
+        mock_report.total_return = 0.0
+        mock_report.percentage_return = 0.0
+        mock_report.active_sessions_count = 0
+        mock_report.completed_sessions_count = 0
+        mock_report.cagr_analysis = mock_cagr
+        mock_report.analysis_period_days = 365
+        
+        formatted_report = engine.format_comprehensive_report(mock_report)
+        
+        # Verify the no-position clarification is included
+        assert "Strategy CAGR: 0.00% (no positions opened)" in formatted_report
+        assert "No investments made during analysis period" in formatted_report
