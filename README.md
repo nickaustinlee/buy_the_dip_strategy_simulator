@@ -218,14 +218,14 @@ First Investment: 2023-03-15 (74 days after start)
 
 📈 CAGR Analysis:
 Full Period (335 days):
-  Strategy CAGR: 12.5%
-  Buy & Hold CAGR: 8.2%
-  Outperformance: +4.3%
+  Strategy CAGR: 8.5%
+  Buy & Hold CAGR: 12.2%
+  Outperformance: -3.7%
 
 Active Period (261 days):  
   Strategy CAGR: 15.8%
-  Buy & Hold CAGR: 9.1%
-  Outperformance: +6.7%
+  Buy & Hold CAGR: 13.1%
+  Outperformance: +2.7%
 
 💰 Investment Summary:
   Total Invested: $24,000
@@ -236,7 +236,7 @@ Active Period (261 days):
 🎯 Strategy Effectiveness:
   DCA Sessions: 3 completed, 1 active
   Average Session Duration: 4.2 months
-  Opportunity Cost: -1.2% (cost of waiting for dips)
+  Opportunity Cost: -3.7% (cost of waiting for dips)
 ```
 
 ## 🏗️ Architecture
