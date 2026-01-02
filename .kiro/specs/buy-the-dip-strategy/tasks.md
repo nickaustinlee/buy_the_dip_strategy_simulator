@@ -2,175 +2,103 @@
 
 ## Overview
 
-This implementation plan breaks down the buy-the-dip strategy into discrete coding tasks that build incrementally. The approach starts with core data structures and configuration, then implements price monitoring, DCA logic, and finally integrates everything with the CLI interface and persistence.
+This implementation plan breaks down the simplified buy-the-dip strategy into discrete coding tasks. The approach starts with configuration and data models, implements the core daily evaluation logic, and finishes with CLI integration and testing. Each task builds incrementally toward a working system.
 
 ## Tasks
 
-- [x] 1. Set up project structure and dependencies
-  - Create Python package structure with proper imports
-  - Set up requirements.txt with yfinance, pandas, pydantic, pyyaml, hypothesis
-  - Create basic module files and __init__.py files
-  - _Requirements: All requirements (foundational)_
+- [x] 1. Set up project structure and configuration management
+  - Create clean Python package structure
+  - Implement StrategyConfig model with Pydantic validation
+  - Create ConfigurationManager class for YAML loading
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9_
 
-- [x] 2. Implement configuration management with Pydantic validation
-  - [x] 2.1 Create StrategyConfig model with Pydantic validation
-    - Define configuration schema with proper field validation
-    - Include default values and range constraints
-    - _Requirements: 6.2, 6.3, 6.4, 6.5, 6.7_
+- [ ]* 1.1 Write property test for configuration loading and validation
+  - **Property 1: Configuration Loading and Validation Consistency**
+  - **Validates: Requirements 1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 1.8, 1.9**
 
-  - [ ]* 2.2 Write property test for configuration validation
-    - **Property 3: Configuration Validation Consistency**
-    - **Validates: Requirements 6.7**
+- [ ] 2. Implement price data management
+  - Create PriceMonitor class with yfinance integration
+  - Implement price data caching with configurable expiration
+  - Add methods for fetching closing prices and calculating rolling maximum
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-  - [x] 2.3 Implement ConfigurationManager class
-    - Create YAML loading and validation methods
-    - Handle missing files and invalid configurations with defaults
-    - _Requirements: 6.1, 6.6_
+- [ ]* 2.1 Write property test for price data caching
+  - **Property 2: Price Data Caching Correctness**
+  - **Validates: Requirements 2.2, 2.3**
 
-  - [ ]* 2.4 Write unit tests for configuration edge cases
-    - Test invalid YAML syntax, missing files, out-of-range values
-    - _Requirements: 6.6, 6.7_
+- [ ]* 2.2 Write unit tests for price data error handling
+  - Test network failures, invalid tickers, missing data scenarios
+  - _Requirements: 2.4_
 
-- [x] 3. Implement price data monitoring and caching
-  - [x] 3.1 Create PriceData model and PriceMonitor class
-    - Implement yfinance integration for fetching closing prices
-    - Create price data caching mechanism
-    - _Requirements: 1.1, 1.2, 1.4_
+- [ ] 3. Implement investment tracking and persistence
+  - Create Investment and PortfolioMetrics data models
+  - Implement InvestmentTracker class with file persistence
+  - Add methods for 28-day constraint checking and portfolio calculations
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6_
 
-  - [ ]* 3.2 Write property test for price data retrieval
-    - **Property 1: Price Data Retrieval Consistency**
-    - **Validates: Requirements 1.2, 1.4**
+- [ ]* 3.1 Write property test for investment persistence
+  - **Property 8: Investment Persistence Round-Trip**
+  - **Validates: Requirements 7.1, 7.2, 7.3**
 
-  - [x] 3.3 Implement rolling maximum calculation
-    - Use pandas rolling operations for efficient calculation
-    - Handle edge cases with insufficient data
-    - _Requirements: 2.1, 2.4_
+- [ ]* 3.2 Write property test for portfolio calculations
+  - **Property 7: Portfolio Calculation Correctness**
+  - **Validates: Requirements 8.1, 8.2, 8.3, 8.4, 8.5**
 
-  - [ ]* 3.4 Write property test for rolling maximum correctness
-    - **Property 2: Rolling Maximum Correctness**
-    - **Validates: Requirements 2.1, 2.3**
+- [ ]* 3.3 Write unit tests for persistence error handling
+  - Test corrupted files, missing files, permission errors
+  - _Requirements: 7.4, 8.6_
 
-  - [ ]* 3.5 Write unit tests for price monitor error handling
-    - Test network failures, invalid tickers, missing data
-    - _Requirements: 1.3, 2.4_
-
-- [x] 4. Checkpoint - Ensure price monitoring works correctly
+- [ ] 4. Checkpoint - Ensure data management components work correctly
   - Ensure all tests pass, ask the user if questions arise.
 
-- [x] 5. Implement DCA session management with state machine
-  - [x] 5.1 Create DCASession and DCAController classes
-    - Implement state machine for DCA session lifecycle
-    - Create methods for session creation, investment processing, and completion
-    - _Requirements: 4.1, 5.1, 5.2, 5.3_
+- [ ] 5. Implement core strategy system
+  - Create StrategySystem class with daily evaluation logic
+  - Implement trigger price calculation using rolling maximum
+  - Add investment decision logic with 28-day constraint checking
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 5.1, 5.2, 5.3, 5.4, 5.5_
 
-  - [ ]* 5.2 Write property test for DCA investment consistency
-    - **Property 6: DCA Investment Consistency**
-    - **Validates: Requirements 4.1, 4.3, 4.4, 8.1**
+- [ ]* 5.1 Write property test for trigger price calculation
+  - **Property 3: Trigger Price Calculation Accuracy**
+  - **Validates: Requirements 3.1, 3.2, 3.3, 3.4**
 
-  - [ ]* 5.3 Write property test for DCA session lifecycle
-    - **Property 7: DCA Session Lifecycle**
-    - **Validates: Requirements 5.1, 5.2, 5.3**
+- [ ]* 5.2 Write property test for investment decision logic
+  - **Property 4: Investment Decision Logic Correctness**
+  - **Validates: Requirements 4.1, 4.2, 4.3, 4.6**
 
-  - [x] 5.4 Implement Transaction model and investment tracking
-    - Create transaction recording and portfolio calculation methods
-    - _Requirements: 8.1, 8.2, 8.3, 8.4_
+- [ ]* 5.3 Write property test for investment constraint enforcement
+  - **Property 5: Investment Constraint Enforcement**
+  - **Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5**
 
-  - [ ]* 5.5 Write property test for portfolio calculations
-    - **Property 9: Portfolio Calculation Accuracy**
-    - **Validates: Requirements 8.2, 8.3, 8.4**
-œ
-- [x] 6. Implement core strategy engine
-  - [x] 6.1 Create StrategyEngine class with trigger detection
-    - Implement price monitoring and trigger condition checking
-    - Handle configuration changes and dynamic trigger updates
-    - _Requirements: 3.1, 3.2, 3.3, 5.4_
+- [ ]* 5.4 Write property test for investment execution accuracy
+  - **Property 6: Investment Execution and Recording Accuracy**
+  - **Validates: Requirements 4.4, 4.5, 6.1, 6.2, 6.3, 6.4**
 
-  - [ ]* 6.2 Write property test for trigger detection
-    - **Property 4: Trigger Detection Accuracy**
-    - **Validates: Requirements 3.1, 3.3**
+- [ ]* 5.5 Write unit tests for edge cases
+  - Test insufficient historical data, boundary conditions
+  - _Requirements: 3.5_
 
-  - [ ]* 6.3 Write property test for configuration change propagation
-    - **Property 5: Configuration Change Propagation**
-    - **Validates: Requirements 2.2, 3.2, 4.2**
+- [ ] 6. Implement CLI interface and main application
+  - Create command-line interface with argument parsing
+  - Add backtest functionality for historical evaluation
+  - Implement main application entry point
+  - _Requirements: All requirements (integration)_
 
-  - [ ]* 6.4 Write property test for dynamic trigger updates
-    - **Property 8: Dynamic Trigger Updates**
-    - **Validates: Requirements 5.4**
+- [ ]* 6.1 Write unit tests for CLI interface
+  - Test argument parsing, configuration file handling
+  - _Requirements: CLI functionality_
 
-  - [ ]* 6.5 Write unit tests for multiple trigger scenarios
-    - Test chronological ordering of simultaneous triggers
-    - _Requirements: 3.4_
+- [ ] 7. Create example configurations and documentation
+  - Create default YAML configuration file
+  - Add example configurations for different strategies
+  - Write usage documentation and examples
 
-- [x] 7. Implement data persistence and state management
-  - [x] 7.1 Create StrategyState model and persistence methods
-    - Implement JSON serialization for system state
-    - Handle state loading, saving, and corruption recovery
-    - _Requirements: 9.1, 9.2, 9.3, 9.4_
-
-  - [ ]* 7.2 Write property test for state persistence round-trip
-    - **Property 10: State Persistence Round-Trip**
-    - **Validates: Requirements 9.1, 9.2, 9.3**
-
-  - [ ]* 7.3 Write unit tests for persistence error handling
-    - Test corrupted files, missing files, permission errors
-    - _Requirements: 9.4_
-
-- [x] 8. Checkpoint - Ensure core strategy logic works correctly
-  - Ensure all tests pass, ask the user if questions arise.
-
-- [x] 9. Implement CLI interface
-  - [x] 9.1 Create CLI argument parsing and validation
-    - Implement command-line interface with configuration file support
-    - Handle default configuration and file validation
-    - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
-
-  - [ ]* 9.2 Write unit tests for CLI interface
-    - Test argument parsing, file validation, error messages
-    - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
-
-  - [x] 9.3 Create main application entry point
-    - Wire together all components in main execution flow
-    - Implement strategy execution loop and reporting
+- [ ] 8. Final integration and testing
+  - [ ]* 8.1 Write integration tests for end-to-end scenarios
+    - Test complete daily evaluation workflow
+    - Test backtest functionality with sample data
     - _Requirements: All requirements (integration)_
 
-- [x] 11. Implement CAGR performance analysis
-  - [x] 11.1 Create CAGRAnalysis model and CAGRAnalysisEngine
-    - Implement CAGR calculation methods and performance comparison logic
-    - Handle edge cases like no investments and missing price data
-    - _Requirements: 10.1, 10.2, 10.3, 10.4_
-
-  - [ ]* 11.2 Write property test for CAGR calculation accuracy
-    - **Property 11: CAGR Calculation Accuracy**
-    - **Validates: Requirements 10.1, 10.2**
-
-  - [ ]* 11.3 Write property test for CAGR period consistency
-    - **Property 12: CAGR Period Consistency**
-    - **Validates: Requirements 10.3, 10.4**
-
-  - [x] 11.4 Integrate CAGR analysis into StrategyEngine
-    - Add CAGR analysis methods to strategy engine
-    - Update reporting to include CAGR metrics
-    - _Requirements: 10.5_
-
-  - [ ]* 11.5 Write unit tests for CAGR analysis edge cases
-    - Test scenarios with no investments, single investment, multiple periods
-    - _Requirements: 10.3, 10.4_
-
-- [x] 12. Create default configuration and example files
-  - [x] 12.1 Create default YAML configuration file
-    - Provide example configuration with documented parameters
-    - _Requirements: 7.2_
-
-  - [x] 12.2 Create example usage documentation
-    - Write README with installation and usage instructions
-    - Include example commands and configuration options
-
-- [x] 13. Final integration and testing
-  - [ ]* 13.1 Write integration tests for end-to-end scenarios
-    - Test complete strategy execution with sample data
-    - _Requirements: All requirements (integration)_
-
-  - [x] 13.2 Final checkpoint - Ensure complete system works
+  - [ ] 8.2 Final checkpoint - Ensure complete system works
     - Run full test suite and validate all functionality
     - Ensure all tests pass, ask the user if questions arise.
 
@@ -182,3 +110,4 @@ This implementation plan breaks down the buy-the-dip strategy into discrete codi
 - Property tests validate universal correctness properties using Hypothesis
 - Unit tests validate specific examples and edge cases
 - The implementation builds incrementally with working functionality at each checkpoint
+- Focus on simplicity and clarity over complex optimizations

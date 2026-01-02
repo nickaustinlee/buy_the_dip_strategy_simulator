@@ -11,6 +11,7 @@ from typing import Optional, Tuple
 
 from ..config import ConfigurationManager
 from ..strategy_engine import StrategyEngine
+from ..simple_strategy import SimpleStrategy
 
 
 def setup_logging(level: str = "INFO") -> None:
@@ -173,6 +174,12 @@ def create_parser() -> argparse.ArgumentParser:
         help="Analysis period from end date (e.g., '1y', '6m', '90d', '2y')"
     )
     
+    parser.add_argument(
+        "--simple",
+        action="store_true",
+        help="Use simplified strategy implementation (cleaner logic)"
+    )
+    
     return parser
 
 
@@ -252,14 +259,29 @@ def main() -> None:
                 else:
                     logger.info("Using default 1-year analysis period")
                 
-                report = engine.generate_report(include_cagr=True, cagr_start_date=start_date, cagr_end_date=end_date)
-                
-                # Get the transactions used in the analysis
-                transactions = engine.get_analysis_transactions(start_date, end_date)
-                
-                # Use the comprehensive formatted report
-                formatted_report = engine.format_comprehensive_report(report, transactions)
-                print(formatted_report)
+                if args.simple:
+                    # Use simple strategy implementation
+                    logger.info("Using simplified strategy implementation")
+                    simple_strategy = SimpleStrategy()
+                    
+                    # Set default date range if not provided
+                    if not start_date or not end_date:
+                        end_date = date.today()
+                        start_date = end_date - timedelta(days=365)
+                    
+                    result = simple_strategy.run_backtest(config, start_date, end_date)
+                    formatted_report = simple_strategy.format_results(result, config.ticker, start_date, end_date)
+                    print(formatted_report)
+                else:
+                    # Use complex strategy implementation
+                    report = engine.generate_report(include_cagr=True, cagr_start_date=start_date, cagr_end_date=end_date)
+                    
+                    # Get the transactions used in the analysis
+                    transactions = engine.get_analysis_transactions(start_date, end_date)
+                    
+                    # Use the comprehensive formatted report
+                    formatted_report = engine.format_comprehensive_report(report, transactions)
+                    print(formatted_report)
                 
             except argparse.ArgumentTypeError as e:
                 logger.error(f"Date range error: {e}")

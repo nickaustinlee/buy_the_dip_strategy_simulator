@@ -2,197 +2,154 @@
 
 ## Overview
 
-The Buy the Dip Strategy system is a Python-based stock trading simulator that implements a dollar-cost averaging approach during market downturns. The system monitors configurable stock tickers (default SPY) and automatically triggers investment when prices drop below a threshold relative to recent highs, continuing until prices recover.
+The Buy the Dip Strategy system is a Python-based stock trading simulator that implements a simplified daily evaluation approach. Each trading day, the system calculates a trigger price based on recent highs and checks if yesterday's closing price was at or below this trigger. When conditions are met and no investment has occurred in the past 28 days, it executes a buy at the current day's closing price.
 
-The architecture emphasizes modularity, configurability, and efficient data processing. Key design decisions include using pandas for time series operations, Pydantic for configuration validation, and a state machine pattern for managing multiple overlapping DCA periods.
+The architecture emphasizes simplicity and statelessness, with the only persistent state being the investment history needed to enforce the 28-day constraint. The system processes each trading day independently, making it easy to understand, test, and maintain.
 
 ## Architecture
 
-The system follows a layered architecture with clear separation of concerns:
+The system follows a simple layered architecture:
 
 ```mermaid
 graph TB
     CLI[CLI Interface] --> Config[Configuration Manager]
-    CLI --> Engine[Strategy Engine]
+    CLI --> Strategy[Strategy System]
     
-    Config --> Validator[Pydantic Validator]
     Config --> YAML[YAML Files]
     
-    Engine --> Monitor[Price Monitor]
-    Engine --> DCA[DCA Controller]
-    Engine --> Persistence[Data Persistence]
+    Strategy --> PriceMonitor[Price Monitor]
+    Strategy --> InvestmentTracker[Investment Tracker]
+    Strategy --> Persistence[Data Persistence]
     
-    Monitor --> YFinance[yfinance API]
-    Monitor --> Cache[Price Cache]
-    
-    DCA --> State[State Machine]
-    DCA --> Tracker[Investment Tracker]
+    PriceMonitor --> YFinance[yfinance API]
+    PriceMonitor --> Cache[Price Cache]
     
     Persistence --> JSON[JSON Storage]
 ```
 
 **Layer Responsibilities:**
-- **Presentation Layer**: CLI interface for user interaction and configuration
-- **Business Logic Layer**: Strategy engine orchestrating the trading logic
-- **Data Layer**: Price monitoring, caching, and persistence
-- **External Services**: yfinance API for market data
+- **CLI Layer**: Command-line interface and configuration loading
+- **Strategy Layer**: Daily evaluation logic and investment decisions
+- **Data Layer**: Price fetching, caching, and investment persistence
 
 ## Components and Interfaces
 
 ### Configuration Manager
-**Purpose**: Load, validate, and manage YAML configuration files
+**Purpose**: Load and validate YAML configuration files
 
 **Key Methods:**
 ```python
 class ConfigurationManager:
     def load_config(self, config_path: Optional[str] = None) -> StrategyConfig
     def validate_config(self, config: dict) -> StrategyConfig
-    def get_default_config_path(self) -> str
 ```
 
 **Configuration Schema** (using Pydantic):
 ```python
 class StrategyConfig(BaseModel):
     ticker: str = "SPY"
-    rolling_window_days: int = Field(90, ge=1, le=365)
+    rolling_window_days: int = Field(90, ge=1)
     percentage_trigger: float = Field(0.90, gt=0.0, le=1.0)
     monthly_dca_amount: float = Field(2000.0, gt=0.0)
     data_cache_days: int = Field(30, ge=1)
 ```
 
 ### Price Monitor
-**Purpose**: Fetch, cache, and analyze stock price data with efficient rolling maximum calculation
+**Purpose**: Fetch, cache, and provide stock price data
 
 **Key Methods:**
 ```python
 class PriceMonitor:
-    def fetch_price_data(self, ticker: str, start_date: date, end_date: date) -> pd.DataFrame
-    def get_rolling_maximum(self, prices: pd.Series, window: int) -> pd.Series
-    def get_current_price(self, ticker: str) -> float  # Returns closing price
-    def update_cache(self, ticker: str, new_data: pd.DataFrame) -> None
+    def get_closing_prices(self, ticker: str, start_date: date, end_date: date) -> pd.Series
+    def get_latest_closing_price(self, ticker: str) -> float
+    def calculate_rolling_maximum(self, prices: pd.Series, window_days: int) -> float
+    def is_cache_valid(self, ticker: str) -> bool
+    def update_cache(self, ticker: str, prices: pd.Series) -> None
 ```
 
-**Rolling Maximum Implementation**: Uses pandas rolling window operations on closing prices for efficiency, with fallback to numpy stride tricks for large datasets based on research findings.
+**Caching Strategy**: Simple file-based caching with configurable expiration. Cache files are stored as CSV with ticker symbol and date range in filename.
 
-### DCA Controller
-**Purpose**: Manage dollar-cost averaging periods using a state machine pattern
-
-**State Machine Design:**
-```python
-class DCAState(Enum):
-    MONITORING = "monitoring"
-    ACTIVE = "active"
-    COMPLETED = "completed"
-
-class DCASession:
-    session_id: str
-    trigger_price: float
-    start_date: date
-    state: DCAState
-    total_invested: float
-    shares_purchased: float
-```
+### Investment Tracker
+**Purpose**: Manage investment history and enforce 28-day constraint
 
 **Key Methods:**
 ```python
-class DCAController:
-    def check_trigger_conditions(self, current_price: float, max_price: float) -> bool
-    def start_dca_session(self, trigger_price: float) -> str
-    def process_monthly_investment(self, session_id: str, current_price: float) -> None
-    def check_completion_conditions(self, session_id: str, current_price: float) -> bool
+class InvestmentTracker:
+    def add_investment(self, investment: Investment) -> None
+    def has_recent_investment(self, check_date: date, days: int = 28) -> bool
+    def get_all_investments(self) -> List[Investment]
+    def calculate_portfolio_metrics(self, current_price: float) -> PortfolioMetrics
+    def save_to_file(self, filepath: str) -> None
+    def load_from_file(self, filepath: str) -> None
 ```
 
-### Strategy Engine
-**Purpose**: Orchestrate the overall trading strategy and coordinate between components
+### Strategy System
+**Purpose**: Orchestrate daily evaluation and investment decisions
 
 **Key Methods:**
 ```python
-class StrategyEngine:
-    def initialize(self, config: StrategyConfig) -> None
-    def run_strategy(self) -> None
-    def process_price_update(self, current_price: float) -> None
-    def generate_report(self) -> StrategyReport
-    def calculate_cagr_analysis(self, start_date: date, end_date: date) -> CAGRAnalysis
-    def calculate_cagr(self, start_value: float, end_value: float, days: int) -> float
+class StrategySystem:
+    def evaluate_trading_day(self, evaluation_date: date) -> EvaluationResult
+    def calculate_trigger_price(self, prices: pd.Series, window_days: int, trigger_pct: float) -> float
+    def should_invest(self, yesterday_price: float, trigger_price: float, evaluation_date: date) -> bool
+    def execute_investment(self, evaluation_date: date, closing_price: float, amount: float) -> Investment
+    def run_backtest(self, start_date: date, end_date: date) -> BacktestResult
 ```
 
-### CAGR Analysis Engine
-**Purpose**: Calculate and compare Compound Annual Growth Rate metrics for strategy vs buy-and-hold
-
-**Key Methods:**
-```python
-class CAGRAnalysisEngine:
-    def analyze_performance(self, transactions: List[Transaction], 
-                          ticker: str, start_date: date, end_date: date) -> CAGRAnalysis
-    def calculate_strategy_cagr(self, transactions: List[Transaction], 
-                              current_price: float, start_date: date, end_date: date) -> float
-    def calculate_buyhold_cagr(self, ticker: str, start_date: date, end_date: date) -> float
-    def calculate_opportunity_cost(self, full_cagr: float, active_cagr: float, 
-                                 delay_days: int, total_days: int) -> float
-```
-
-### CLI Interface
-**Purpose**: Provide command-line interface for running strategies with different configurations
-
-**Command Structure:**
-```bash
-python buy_the_dip.py [--config CONFIG_FILE] [--report] [--validate-config]
-```
+**Daily Evaluation Logic:**
+1. Fetch price data for rolling window + 1 day (to get yesterday's price)
+2. Calculate rolling maximum over window days (excluding current day)
+3. Calculate trigger price = rolling_maximum * percentage_trigger
+4. Check if yesterday's closing price <= trigger_price
+5. Check if any investment made in past 28 days
+6. If both conditions met, execute investment at current day's closing price
 
 ## Data Models
 
-### Price Data Structure
+### Investment Record
 ```python
-class PriceData:
+class Investment:
     date: date
-    close: float  # Using closing price for simplicity
-    volume: int
+    ticker: str
+    price: float  # Closing price on investment date
+    amount: float  # Dollar amount invested
+    shares: float  # Calculated as amount / price
 ```
 
-### Investment Transaction
+### Portfolio Metrics
 ```python
-class Transaction:
-    transaction_id: str
-    session_id: str
-    date: date
-    price: float
-    shares: float
-    amount: float
-    transaction_type: Literal["buy"]
+class PortfolioMetrics:
+    total_invested: float
+    total_shares: float
+    current_value: float  # total_shares * current_price
+    total_return: float   # current_value - total_invested
+    percentage_return: float  # total_return / total_invested
 ```
 
-### Strategy State
+### Evaluation Result
 ```python
-class StrategyState:
-    config: StrategyConfig
-    active_sessions: List[DCASession]
-    completed_sessions: List[DCASession]
-    all_transactions: List[Transaction]
-    last_update: datetime
-    price_cache: Dict[str, pd.DataFrame]
+class EvaluationResult:
+    evaluation_date: date
+    yesterday_price: float
+    trigger_price: float
+    rolling_maximum: float
+    trigger_met: bool
+    recent_investment_exists: bool
+    investment_executed: bool
+    investment: Optional[Investment]
 ```
 
-### CAGR Analysis Results
+### Backtest Result
 ```python
-class CAGRAnalysis:
-    analysis_start_date: date
-    analysis_end_date: date
-    first_investment_date: Optional[date]
-    
-    # Full period metrics (analysis_start_date to analysis_end_date)
-    full_period_days: int
-    strategy_full_period_cagr: float
-    buyhold_full_period_cagr: float
-    
-    # Active period metrics (first_investment_date to analysis_end_date)
-    active_period_days: Optional[int]
-    strategy_active_period_cagr: Optional[float]
-    buyhold_active_period_cagr: Optional[float]
-    
-    # Comparison metrics
-    full_period_outperformance: float  # strategy - buyhold
-    active_period_outperformance: Optional[float]
-    opportunity_cost: Optional[float]  # cost of waiting for first dip
+class BacktestResult:
+    start_date: date
+    end_date: date
+    total_evaluations: int
+    trigger_conditions_met: int
+    investments_executed: int
+    investments_blocked_by_constraint: int
+    final_portfolio: PortfolioMetrics
+    all_investments: List[Investment]
 ```
 
 ## Error Handling
@@ -200,22 +157,53 @@ class CAGRAnalysis:
 **Price Data Errors:**
 - Network failures: Retry with exponential backoff (max 3 attempts)
 - Invalid ticker symbols: Log error and exit gracefully
-- Missing historical data: Use available data with warnings
+- Missing price data: Skip evaluation for that day with warning
 
 **Configuration Errors:**
-- Invalid YAML syntax: Display clear error message with line numbers
+- Invalid YAML: Display clear error message and exit
 - Missing required fields: Use defaults with warnings
-- Out-of-range values: Validate using Pydantic constraints
+- Out-of-range values: Validate using Pydantic and reject invalid configs
 
-**State Persistence Errors:**
-- Corrupted state files: Initialize fresh state with backup of corrupted file
-- Disk space issues: Log critical error and attempt cleanup
-- Permission errors: Provide clear instructions for resolution
+**File System Errors:**
+- Missing investment history: Start with empty history
+- Corrupted investment file: Backup corrupted file and start fresh
+- Permission errors: Provide clear error message with resolution steps
 
-**Graceful Degradation:**
-- Cache failures: Continue with fresh API calls
-- Partial data: Operate with available data and log limitations
-- API rate limits: Implement respectful backoff strategies
+## Correctness Properties
+
+*A property is a characteristic or behavior that should hold true across all valid executions of a system—essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+
+### Property 1: Configuration Loading and Validation Consistency
+*For any* YAML configuration file with valid structure, all required fields (ticker, rolling_window_days, percentage_trigger, monthly_dca_amount, data_cache_days) should be loaded correctly, and validation should accept values within defined ranges while rejecting values outside those ranges.
+**Validates: Requirements 1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 1.8, 1.9**
+
+### Property 2: Price Data Caching Correctness
+*For any* ticker and date range, when data is cached and still valid, repeated requests should return identical price data without additional API calls, and cache expiration should work correctly.
+**Validates: Requirements 2.2, 2.3**
+
+### Property 3: Trigger Price Calculation Accuracy
+*For any* price series, window size, and percentage trigger, the system should calculate the rolling maximum over trailing window days using only closing prices, then compute trigger price as rolling_maximum * percentage_trigger, recalculating fresh each day.
+**Validates: Requirements 3.1, 3.2, 3.3, 3.4**
+
+### Property 4: Investment Decision Logic Correctness
+*For any* trading day evaluation, an investment should be executed if and only if yesterday's closing price is <= trigger price AND no investment exists within the past 28 calendar days, with each day evaluated independently.
+**Validates: Requirements 4.1, 4.2, 4.3, 4.6**
+
+### Property 5: Investment Constraint Enforcement
+*For any* sequence of investment attempts over time, the system should never allow two investments within 28 calendar days of each other, maintaining this as an invariant across all operations and using calendar days (not trading days).
+**Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5**
+
+### Property 6: Investment Execution and Recording Accuracy
+*For any* executed investment, the system should use the current day's closing price, invest exactly the monthly_dca_amount, and accurately record the date, price, amount, and calculated shares (amount/price).
+**Validates: Requirements 4.4, 4.5, 6.1, 6.2, 6.3, 6.4**
+
+### Property 7: Portfolio Calculation Correctness
+*For any* set of investments and current price, the calculated metrics should accurately reflect total invested (sum of amounts), total shares (sum of shares), current value (total_shares * current_price), total return (current_value - total_invested), and percentage return (total_return / total_invested).
+**Validates: Requirements 8.1, 8.2, 8.3, 8.4, 8.5**
+
+### Property 8: Investment Persistence Round-Trip
+*For any* investment history, saving to file and then loading should produce an equivalent investment list, with immediate persistence on investment execution and proper constraint checking using persisted data across sessions.
+**Validates: Requirements 7.1, 7.2, 7.3**
 
 ## Testing Strategy
 
@@ -223,10 +211,10 @@ The testing approach combines unit tests for specific functionality with propert
 
 **Unit Testing Focus:**
 - Configuration validation edge cases
-- Price data parsing and error conditions
-- State machine transitions
+- Price data error handling
+- Investment constraint boundary conditions
+- File persistence error scenarios
 - CLI argument processing
-- Integration between components
 
 **Property-Based Testing Configuration:**
 - Framework: Hypothesis (Python's leading PBT library)
@@ -239,72 +227,19 @@ tests/
 ├── unit/
 │   ├── test_config_manager.py
 │   ├── test_price_monitor.py
-│   ├── test_dca_controller.py
-│   └── test_strategy_engine.py
+│   ├── test_investment_tracker.py
+│   └── test_strategy_system.py
 ├── property/
-│   ├── test_rolling_maximum_properties.py
-│   ├── test_dca_session_properties.py
-│   └── test_state_persistence_properties.py
+│   ├── test_trigger_calculation_properties.py
+│   ├── test_investment_constraint_properties.py
+│   └── test_portfolio_calculation_properties.py
 └── integration/
-    ├── test_end_to_end_scenarios.py
-    └── test_cli_interface.py
+    ├── test_daily_evaluation.py
+    └── test_backtest_scenarios.py
 ```
 
-**Performance Testing:**
-- Rolling window calculations with large datasets (1M+ data points)
-- Memory usage during extended monitoring periods
-- Configuration loading and validation speed
-
-## Correctness Properties
-
-*A property is a characteristic or behavior that should hold true across all valid executions of a system—essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
-
-Based on the prework analysis and property reflection to eliminate redundancy, the following properties ensure the system behaves correctly across all valid inputs and scenarios:
-
-### Property 1: Price Data Retrieval Consistency
-*For any* valid date range and ticker symbol, requesting price data should return daily closing prices for all trading days within that range, and repeated requests for the same range should return identical data.
-**Validates: Requirements 1.2, 1.4**
-
-### Property 2: Rolling Maximum Correctness
-*For any* price series and window size, the rolling maximum at each position should equal the maximum value in the window ending at that position, and adding new data points should maintain this correctness efficiently.
-**Validates: Requirements 2.1, 2.3**
-
-### Property 3: Configuration Validation Consistency
-*For any* configuration values, the validation should accept values within defined ranges and reject values outside those ranges, with consistent behavior across all configuration parameters.
-**Validates: Requirements 6.7**
-
-### Property 4: Trigger Detection Accuracy
-*For any* price sequence and trigger percentage, when the current price drops below (rolling_maximum * percentage_trigger), the system should activate DCA, and should continuously check this condition on every price update.
-**Validates: Requirements 3.1, 3.3**
-
-### Property 5: Configuration Change Propagation
-*For any* configuration parameter change, all subsequent calculations should use the new values while not affecting already active DCA sessions.
-**Validates: Requirements 2.2, 3.2, 4.2**
-
-### Property 6: DCA Investment Consistency
-*For any* active DCA session, monthly investments should occur at the configured rate using the correct closing price, and all investments should be properly tracked with accurate totals.
-**Validates: Requirements 4.1, 4.3, 4.4, 8.1**
-
-### Property 7: DCA Session Lifecycle
-*For any* DCA session, it should activate when price drops below trigger, continue until price reaches or exceeds the original trigger price, then deactivate while maintaining independent state from other sessions.
-**Validates: Requirements 5.1, 5.2, 5.3**
-
-### Property 8: Dynamic Trigger Updates
-*For any* sequence of price updates, when the rolling maximum increases, future trigger calculations should use the new maximum while existing DCA sessions maintain their original trigger prices.
-**Validates: Requirements 5.4**
-
-### Property 9: Portfolio Calculation Accuracy
-*For any* set of investment transactions and current price, the total invested amount, total shares owned, current portfolio value, and performance metrics should be calculated correctly and consistently.
-**Validates: Requirements 8.2, 8.3, 8.4**
-
-### Property 10: State Persistence Round-Trip
-*For any* valid system state, saving the state and then restoring it should produce an equivalent state, and transactions should be persisted immediately when they occur.
-**Validates: Requirements 9.1, 9.2, 9.3**
-
-### Property 11: CAGR Calculation Accuracy
-*For any* set of investment transactions and price data over a time period, the calculated CAGR should match the mathematical formula: CAGR = (End Value / Start Value)^(365/days) - 1, and buy-and-hold CAGR should equal the ticker's price appreciation over the same period.
-**Validates: Requirements 10.1, 10.2**
-
-### Property 12: CAGR Period Consistency
-*For any* analysis period, when the strategy has no investments, the strategy CAGR should be zero and active period should be undefined, while buy-and-hold CAGR should reflect actual ticker performance over the full period.
-**Validates: Requirements 10.3, 10.4**
+**Dual Testing Approach:**
+- Unit tests verify specific examples, edge cases, and error conditions
+- Property tests verify universal properties across all inputs
+- Both are complementary and necessary for comprehensive coverage
+- Property tests handle covering lots of inputs while unit tests focus on concrete scenarios
