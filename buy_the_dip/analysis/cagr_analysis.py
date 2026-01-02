@@ -4,6 +4,7 @@ CAGR analysis engine for comparing strategy performance vs buy-and-hold.
 
 import logging
 import math
+import pandas as pd
 from datetime import date, timedelta
 from typing import List, Optional
 
@@ -66,18 +67,19 @@ class CAGRAnalysisEngine:
         first_investment_date = min(t.date for t in transactions) if transactions else None
         
         # Calculate strategy metrics
-        strategy_start_value = 0.0  # Strategy starts with no investment
+        # For full period CAGR, use total invested as starting value since that's the capital deployed
+        total_invested = sum(t.amount for t in transactions)
+        strategy_start_value = total_invested if total_invested > 0 else 0.0
         strategy_end_value = self._calculate_strategy_portfolio_value(transactions, current_price)
         
         # Calculate buy-and-hold metrics (assuming same total investment)
-        total_invested = sum(t.amount for t in transactions)
         buyhold_start_value = total_invested if total_invested > 0 else 1000.0  # Default for comparison
         buyhold_end_value = buyhold_start_value * (end_price / start_price)
         
         # Calculate full period CAGRs
         strategy_full_cagr = self._calculate_cagr(
             strategy_start_value, strategy_end_value, full_period_days
-        ) if strategy_end_value > 0 else 0.0
+        ) if strategy_end_value > 0 and strategy_start_value > 0 else 0.0
         
         buyhold_full_cagr = self._calculate_cagr(
             buyhold_start_value, buyhold_end_value, full_period_days
@@ -87,7 +89,6 @@ class CAGRAnalysisEngine:
         active_period_days = None
         strategy_active_cagr = None
         buyhold_active_cagr = None
-        opportunity_cost = None
         
         if first_investment_date:
             active_period_days = (end_date - first_investment_date).days
@@ -97,7 +98,8 @@ class CAGRAnalysisEngine:
                 first_investment_price = self._get_price_on_date(price_data, first_investment_date)
                 
                 # Strategy active period CAGR (from first investment to end)
-                strategy_active_start_value = transactions[0].amount  # First investment amount
+                # Use total invested amount as starting value for fair comparison
+                strategy_active_start_value = total_invested
                 strategy_active_cagr = self._calculate_cagr(
                     strategy_active_start_value, strategy_end_value, active_period_days
                 )
@@ -108,15 +110,6 @@ class CAGRAnalysisEngine:
                 buyhold_active_cagr = self._calculate_cagr(
                     buyhold_active_start_value, buyhold_active_end_value, active_period_days
                 )
-                
-                # Calculate opportunity cost (cost of waiting for dip)
-                delay_days = (first_investment_date - start_date).days
-                if delay_days > 0:
-                    # What would have been earned if invested immediately
-                    immediate_buyhold_cagr = self._calculate_cagr(
-                        buyhold_start_value, buyhold_end_value, full_period_days
-                    )
-                    opportunity_cost = immediate_buyhold_cagr - strategy_full_cagr
         
         # Calculate outperformance metrics
         full_period_outperformance = strategy_full_cagr - buyhold_full_cagr
@@ -139,7 +132,7 @@ class CAGRAnalysisEngine:
             buyhold_active_period_cagr=buyhold_active_cagr,
             full_period_outperformance=full_period_outperformance,
             active_period_outperformance=active_period_outperformance,
-            opportunity_cost=opportunity_cost,
+            opportunity_cost=None,  # Removed - redundant with outperformance
             strategy_start_value=strategy_start_value,
             strategy_end_value=strategy_end_value,
             buyhold_start_value=buyhold_start_value,
@@ -198,7 +191,20 @@ class CAGRAnalysisEngine:
         """
         # Convert target_date to datetime for comparison
         price_data_copy = price_data.copy()
-        price_data_copy['Date'] = price_data_copy.index.date
+        
+        # Handle different index types
+        if hasattr(price_data_copy.index, 'date'):
+            # DatetimeIndex - extract date
+            price_data_copy['Date'] = price_data_copy.index.date
+        else:
+            # RangeIndex or other - use the index as dates if it's datetime-like
+            # or try to convert the index to datetime
+            try:
+                price_data_copy['Date'] = pd.to_datetime(price_data_copy.index).date
+            except:
+                # Fallback: assume the data is already sorted by date and use position
+                logger.warning(f"Could not extract dates from price data index, using first available price")
+                return float(price_data.iloc[0]['Close'])
         
         # Find exact match
         exact_match = price_data_copy[price_data_copy['Date'] == target_date]
@@ -279,10 +285,5 @@ class CAGRAnalysisEngine:
             report.append(f"  Buy-Hold CAGR: {analysis.buyhold_active_period_cagr:.2%}")
             report.append(f"  Outperformance: {analysis.active_period_outperformance:+.2%}")
             report.append(f"  Active Period Days: {analysis.active_period_days}")
-        
-        if analysis.opportunity_cost is not None:
-            report.append("")
-            report.append(f"Opportunity Cost: {analysis.opportunity_cost:+.2%}")
-            report.append("  (Cost of waiting for dip vs immediate investment)")
         
         return "\n".join(report)

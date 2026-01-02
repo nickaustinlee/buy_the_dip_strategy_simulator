@@ -441,7 +441,7 @@ class TestStrategyEngine:
         mock_report.cagr_analysis = mock_cagr
         mock_report.analysis_period_days = 365
         
-        formatted_report = engine.format_comprehensive_report(mock_report)
+        formatted_report = engine.format_comprehensive_report(mock_report, [])
         
         # Verify key elements are in the formatted report
         assert "Buy-the-Dip Strategy Report for SPY" in formatted_report
@@ -450,7 +450,6 @@ class TestStrategyEngine:
         assert "Buy-Hold CAGR: 12.00%" in formatted_report
         assert "Outperformance: -4.00%" in formatted_report
         assert "Active Period Performance" in formatted_report
-        assert "Opportunity Cost: -4.00%" in formatted_report
     
     def test_format_comprehensive_report_no_investments(self, engine_with_mock_data):
         """Test comprehensive report formatting when no investments were made."""
@@ -485,7 +484,7 @@ class TestStrategyEngine:
         mock_report.cagr_analysis = mock_cagr
         mock_report.analysis_period_days = 365
         
-        formatted_report = engine.format_comprehensive_report(mock_report)
+        formatted_report = engine.format_comprehensive_report(mock_report, [])
         
         # Verify the no-position clarification is included
         assert "Strategy CAGR: 0.00% (no positions opened)" in formatted_report

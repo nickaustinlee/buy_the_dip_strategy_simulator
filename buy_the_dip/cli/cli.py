@@ -254,8 +254,11 @@ def main() -> None:
                 
                 report = engine.generate_report(include_cagr=True, cagr_start_date=start_date, cagr_end_date=end_date)
                 
+                # Get the transactions used in the analysis
+                transactions = engine.get_analysis_transactions(start_date, end_date)
+                
                 # Use the comprehensive formatted report
-                formatted_report = engine.format_comprehensive_report(report)
+                formatted_report = engine.format_comprehensive_report(report, transactions)
                 print(formatted_report)
                 
             except argparse.ArgumentTypeError as e:

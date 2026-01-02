@@ -60,7 +60,7 @@ class DCAController:
         
         return session.session_id
     
-    def process_monthly_investment(self, session_id: str, current_price: float, investment_amount: float) -> Optional[Transaction]:
+    def process_monthly_investment(self, session_id: str, current_price: float, investment_amount: float, investment_date: Optional[date] = None) -> Optional[Transaction]:
         """
         Process a monthly investment for an active DCA session.
         
@@ -68,6 +68,7 @@ class DCAController:
             session_id: ID of the DCA session
             current_price: Current stock price for share calculation
             investment_amount: Dollar amount to invest
+            investment_date: Date of investment (defaults to today)
             
         Returns:
             Transaction object if investment was processed, None otherwise
@@ -81,13 +82,16 @@ class DCAController:
             logger.warning(f"Cannot invest in session {session_id} - state is {session.state}")
             return None
         
+        if investment_date is None:
+            investment_date = date.today()
+        
         # Calculate shares purchased
         shares = investment_amount / current_price
         
         # Create transaction record
         transaction = Transaction(
             session_id=session_id,
-            date=date.today(),
+            date=investment_date,
             price=current_price,
             shares=shares,
             amount=investment_amount
@@ -96,7 +100,7 @@ class DCAController:
         # Update session totals
         session.total_invested += investment_amount
         session.shares_purchased += shares
-        session.last_investment_date = date.today()
+        session.last_investment_date = investment_date
         
         # Record transaction
         self._transactions.append(transaction)

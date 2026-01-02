@@ -6,5 +6,6 @@ to execute the overall trading strategy.
 """
 
 from .strategy_engine import StrategyEngine
+from .backtest_engine import BacktestEngine
 
-__all__ = ["StrategyEngine"]
+__all__ = ["StrategyEngine", "BacktestEngine"]
