@@ -101,6 +101,38 @@ Generate a detailed performance report:
 poetry run python buy_the_dip.py --report
 ```
 
+### Custom Date Range Analysis
+
+Analyze specific time periods for backtesting:
+
+```bash
+# Analyze a specific year
+poetry run buy-the-dip --report --start-date 2023-01-01 --end-date 2023-12-31
+
+# Analyze last 6 months
+poetry run buy-the-dip --report --analysis-period 6m
+
+# Analyze last 2 years  
+poetry run buy-the-dip --report --analysis-period 2y
+
+# Analyze 90 days
+poetry run buy-the-dip --report --analysis-period 90d
+
+# Combine end date with period (6 months ending Dec 31, 2024)
+poetry run buy-the-dip --report --end-date 2024-12-31 --analysis-period 6m
+```
+
+**Date Range Options:**
+- `--start-date YYYY-MM-DD`: Specify analysis start date
+- `--end-date YYYY-MM-DD`: Specify analysis end date  
+- `--analysis-period`: Use shorthand periods (`1y`, `6m`, `90d`, `2y`)
+
+**Period Format Examples:**
+- `90d` = 90 days
+- `6m` = 6 months (180 days)
+- `1y` = 1 year (365 days)
+- `2y` = 2 years (730 days)
+
 ### Validate Configuration
 
 Validate a configuration file without running the strategy:

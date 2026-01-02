@@ -366,13 +366,14 @@ class StrategyEngine:
             logger.error(f"Error during strategy execution: {e}")
             raise
     
-    def generate_report(self, include_cagr: bool = True, cagr_start_date: Optional[date] = None) -> StrategyReport:
+    def generate_report(self, include_cagr: bool = True, cagr_start_date: Optional[date] = None, cagr_end_date: Optional[date] = None) -> StrategyReport:
         """
         Generate a strategy performance report.
         
         Args:
             include_cagr: Whether to include CAGR analysis in the report
             cagr_start_date: Start date for CAGR analysis (defaults to 1 year ago)
+            cagr_end_date: End date for CAGR analysis (defaults to today)
         
         Returns:
             Strategy report with performance metrics
@@ -398,20 +399,23 @@ class StrategyEngine:
             
             if include_cagr:
                 try:
-                    # Default to 1 year analysis period if not specified
-                    if cagr_start_date is None:
-                        cagr_start_date = date.today() - timedelta(days=365)
+                    # Default end date to today if not specified
+                    if cagr_end_date is None:
+                        cagr_end_date = date.today()
                     
-                    end_date = date.today()
-                    analysis_period_days = (end_date - cagr_start_date).days
+                    # Default to 1 year analysis period if start date not specified
+                    if cagr_start_date is None:
+                        cagr_start_date = cagr_end_date - timedelta(days=365)
+                    
+                    analysis_period_days = (cagr_end_date - cagr_start_date).days
                     
                     cagr_analysis = self.calculate_cagr_analysis(
                         start_date=cagr_start_date,
-                        end_date=end_date,
+                        end_date=cagr_end_date,
                         current_price=current_price
                     )
                     
-                    logger.info(f"CAGR analysis included for period {cagr_start_date} to {end_date}")
+                    logger.info(f"CAGR analysis included for period {cagr_start_date} to {cagr_end_date}")
                     
                 except Exception as e:
                     logger.warning(f"Could not calculate CAGR analysis: {e}")
