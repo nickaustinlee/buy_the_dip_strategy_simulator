@@ -458,6 +458,12 @@ def create_parser() -> argparse.ArgumentParser:
     )
     
     parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check if today is a buying day according to the strategy (ignores 28-day constraint)"
+    )
+    
+    parser.add_argument(
         "--validate-config",
         action="store_true",
         help="Validate configuration file and exit"
@@ -671,6 +677,74 @@ def main() -> None:
                 
             except Exception as e:
                 logger.error(f"Failed to get portfolio status: {e}")
+                sys.exit(1)
+        
+        elif args.check:
+            # Check if today is a buying day
+            try:
+                today = date.today()
+                
+                # Get price data for rolling window
+                start_date = today - timedelta(days=config.rolling_window_days + 30)
+                prices = price_monitor.get_closing_prices(config.ticker, start_date, today)
+                
+                if prices.empty:
+                    logger.error(f"No price data available for {config.ticker}")
+                    sys.exit(1)
+                
+                # Get yesterday's price
+                yesterday = today - timedelta(days=1)
+                available_dates = [d for d in prices.index if d <= yesterday]
+                
+                if not available_dates:
+                    logger.error(f"No price data available before {today}")
+                    sys.exit(1)
+                
+                yesterday_actual = max(available_dates)
+                yesterday_price = float(prices[yesterday_actual])
+                
+                # Calculate trigger price
+                historical_prices = prices[prices.index <= yesterday_actual]
+                trigger_price = strategy_system.calculate_trigger_price(
+                    historical_prices,
+                    config.rolling_window_days,
+                    config.percentage_trigger
+                )
+                
+                rolling_max = price_monitor.calculate_rolling_maximum(
+                    historical_prices,
+                    config.rolling_window_days
+                )
+                
+                # Check if trigger is met
+                trigger_met = yesterday_price <= trigger_price
+                
+                # Display result
+                print(f"\n🔍 BUY SIGNAL CHECK - {config.ticker} ({today})")
+                print("=" * 50)
+                print(f"Yesterday's Price: ${yesterday_price:.2f}")
+                print(f"Trigger Price: ${trigger_price:.2f}")
+                print(f"Rolling Maximum ({config.rolling_window_days}d): ${rolling_max:.2f}")
+                print(f"Trigger Percentage: {config.percentage_trigger:.1%}")
+                print("")
+                
+                if trigger_met:
+                    print("✅ BUY SIGNAL: Trigger condition is met!")
+                    print(f"   Yesterday's price (${yesterday_price:.2f}) is at or below")
+                    print(f"   the trigger price (${trigger_price:.2f})")
+                else:
+                    print("❌ NO BUY SIGNAL: Trigger condition not met")
+                    print(f"   Yesterday's price (${yesterday_price:.2f}) is above")
+                    print(f"   the trigger price (${trigger_price:.2f})")
+                    pct_from_trigger = ((yesterday_price - trigger_price) / trigger_price) * 100
+                    print(f"   Price is {pct_from_trigger:.1f}% above trigger")
+                
+                print("")
+                print("Note: This check ignores the 28-day constraint.")
+                print("      Use --evaluate to see if an investment would actually execute.")
+                
+            except Exception as e:
+                logger.error(f"Failed to check buy signal: {e}")
                 sys.exit(1)
                 
         else:
