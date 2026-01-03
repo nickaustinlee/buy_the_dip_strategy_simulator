@@ -167,6 +167,109 @@ data_cache_days: 30              # Days to cache price data
 | `small_cap.yaml` | High | 13% drops | $1.5K | Small-cap growth |
 | `crypto_etf.yaml` | Very High | 18% drops | $1K | Bitcoin ETF exposure |
 
+## 💼 How Portfolio Tracking Works
+
+The system maintains a **persistent portfolio** that accumulates investments across multiple program runs. This simulates how a real buy-the-dip strategy would build a portfolio over time.
+
+### Portfolio Persistence
+
+**Investment Storage**: All investments are saved to `~/.buy_the_dip/data/investments.json`
+- **Persists across runs**: Your simulated portfolio continues growing between program executions
+- **28-day constraint tracking**: The system remembers when you last invested to enforce spacing rules
+- **Performance tracking**: Calculate returns based on accumulated investments
+
+### How Investments Are Added
+
+**Daily Evaluation Mode**: Run the strategy on specific dates
+```bash
+# Evaluate today (if conditions are met, an investment is made and saved)
+poetry run python buy_the_dip.py --evaluate $(date +%Y-%m-%d)
+
+# Evaluate a historical date when there was likely a dip
+poetry run python buy_the_dip.py --evaluate 2024-03-15
+```
+
+**Automatic Mode**: Run the strategy regularly (e.g., daily cron job)
+```bash
+# This would be run daily to check conditions and invest when appropriate
+poetry run python buy_the_dip.py --evaluate $(date +%Y-%m-%d)
+```
+
+### Portfolio Status
+
+**Check Current Portfolio**:
+```bash
+poetry run python buy_the_dip.py --status
+```
+
+**Empty Portfolio** (when starting):
+```
+📊 PORTFOLIO STATUS - SPY
+==================================================
+No investments found.
+```
+
+**Active Portfolio** (after investments):
+```
+📊 PORTFOLIO STATUS - SPY
+==================================================
+Current Price: $445.20
+Total Invested: $4,000.00
+Total Shares: 9.2341
+Current Value: $4,620.50
+Total Return: $620.50
+Percentage Return: 15.51%
+
+💰 RECENT INVESTMENTS (Last 5)
+------------------------------
+2024-03-15: $1,000.00 at $395.20 = 2.5304 shares
+2024-05-22: $1,000.00 at $410.80 = 2.4342 shares
+2024-08-18: $1,000.00 at $425.60 = 2.3502 shares
+2024-11-02: $1,000.00 at $438.90 = 2.2783 shares
+```
+
+### Backtests vs Portfolio
+
+**Important Distinction**:
+- **Backtests** (`--backtest`): Temporary simulations that don't affect your persistent portfolio
+- **Daily Evaluations** (`--evaluate`): Add investments to your persistent portfolio when conditions are met
+
+**Backtest Example** (doesn't save investments):
+```bash
+poetry run python buy_the_dip.py --backtest --period 1y
+# Shows what would have happened, but doesn't modify your portfolio
+```
+
+**Daily Evaluation** (saves investments):
+```bash
+poetry run python buy_the_dip.py --evaluate 2024-03-15
+# If conditions are met, adds investment to your persistent portfolio
+```
+
+### Typical Usage Pattern
+
+1. **Start with empty portfolio**: No investments initially
+2. **Run daily evaluations**: Check conditions and invest when appropriate
+3. **Monitor with --status**: Track your growing portfolio over time
+4. **Use backtests for analysis**: Test different strategies without affecting your portfolio
+
+### Managing Your Portfolio
+
+**Reset Portfolio** (start over):
+```bash
+rm ~/.buy_the_dip/data/investments.json
+```
+
+**Backup Portfolio**:
+```bash
+cp ~/.buy_the_dip/data/investments.json ~/my_portfolio_backup.json
+```
+
+**View Portfolio File**:
+```bash
+cat ~/.buy_the_dip/data/investments.json
+```
+
 ## 📊 Understanding the Output
 
 ### Daily Evaluation Output
