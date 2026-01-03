@@ -26,6 +26,10 @@ class PriceMonitor:
         self._cache_timestamps: Dict[str, datetime] = {}
         self._yf = None
         
+        # API call tracking
+        self._api_calls_made = 0
+        self._cache_hits = 0
+        
         # Set up persistent cache directory
         if cache_dir is None:
             cache_dir = os.path.join(os.path.expanduser("~"), ".buy_the_dip", "price_cache")
@@ -320,11 +324,16 @@ class PriceMonitor:
         
         if not missing_ranges:
             # All data is cached, filter and return
+            self._cache_hits += 1
             logger.debug(f"All data for {ticker} ({start_date} to {end_date}) found in cache")
             if cached_data is not None:
                 mask = (cached_data['Date'] >= start_date) & (cached_data['Date'] <= end_date)
                 return cached_data[mask].reset_index(drop=True)
             return pd.DataFrame()
+        
+        # Some data needs to be fetched - count this as partial cache hit if we have some cached data
+        if cached_data is not None and not cached_data.empty:
+            self._cache_hits += 1  # Partial cache hit
         
         # Fetch missing data from API
         all_new_data = pd.DataFrame()
@@ -333,6 +342,7 @@ class PriceMonitor:
             logger.debug(f"Fetching {ticker} data from API for {range_start} to {range_end}")
             
             try:
+                self._api_calls_made += 1
                 yf = self._get_yfinance()
                 stock = yf.Ticker(ticker)
                 data = stock.history(start=range_start, end=range_end + timedelta(days=1))
@@ -392,6 +402,7 @@ class PriceMonitor:
             DataFrame with fresh price data
         """
         try:
+            self._api_calls_made += 1
             yf = self._get_yfinance()
             stock = yf.Ticker(ticker)
             data = stock.history(start=start_date, end=end_date + timedelta(days=1))
@@ -506,6 +517,7 @@ class PriceMonitor:
         
         # Fetch current data from API
         try:
+            self._api_calls_made += 1
             yf = self._get_yfinance()
             stock = yf.Ticker(ticker)
             # Get the most recent trading day's data
@@ -603,6 +615,24 @@ class PriceMonitor:
             for cache_file in self._cache_dir.glob("*_prices.json"):
                 cache_file.unlink()
             logger.debug("Cleared all price caches")
+    
+    def get_api_stats(self) -> Dict[str, int]:
+        """
+        Get API call statistics.
+        
+        Returns:
+            Dictionary with API call counts
+        """
+        return {
+            'api_calls_made': self._api_calls_made,
+            'cache_hits': self._cache_hits,
+            'total_requests': self._api_calls_made + self._cache_hits
+        }
+    
+    def reset_api_stats(self) -> None:
+        """Reset API call statistics counters."""
+        self._api_calls_made = 0
+        self._cache_hits = 0
     
     def get_cache_info(self, ticker: str) -> Dict:
         """

@@ -287,6 +287,10 @@ class StrategySystem:
             
             logger.info(f"Fetched {len(all_prices)} price records, running backtest...")
             
+            # Log API stats after initial fetch
+            api_stats_initial = self.price_monitor.get_api_stats()
+            logger.info(f"Data fetch - API calls: {api_stats_initial['api_calls_made']}, Cache hits: {api_stats_initial['cache_hits']}")
+            
             # Generate business days in the range
             current_date = start_date
             while current_date <= end_date:
@@ -376,6 +380,10 @@ class StrategySystem:
                 )
             
             logger.info(f"Backtest completed: {total_evaluations} evaluations, {investments_executed} investments executed")
+            
+            # Log final API stats
+            api_stats_final = self.price_monitor.get_api_stats()
+            logger.info(f"Total - API calls: {api_stats_final['api_calls_made']}, Cache hits: {api_stats_final['cache_hits']}")
             
             return BacktestResult(
                 start_date=start_date,

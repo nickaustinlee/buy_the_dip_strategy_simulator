@@ -333,6 +333,10 @@ def format_backtest_result(result: BacktestResult, config, price_monitor: PriceM
             
             price_monitor_logger.setLevel(original_level)
             
+            # Log API stats after buy-and-hold fetch
+            api_stats_after_bh = price_monitor.get_api_stats()
+            logging.getLogger(__name__).debug(f"After buy-and-hold fetch - API calls: {api_stats_after_bh['api_calls_made']}, Cache hits: {api_stats_after_bh['cache_hits']}")
+            
             if not price_data.empty:
                 start_price = float(price_data.iloc[0]['Close'])
                 end_price = float(price_data.iloc[-1]['Close'])
@@ -347,7 +351,7 @@ def format_backtest_result(result: BacktestResult, config, price_monitor: PriceM
                 
         except Exception as e:
             price_monitor_logger.setLevel(original_level)
-            logger.warning(f"Could not calculate buy-and-hold comparison: {e}")
+            logging.getLogger(__name__).warning(f"Could not calculate buy-and-hold comparison: {e}")
     
     lines.append("")
     
@@ -633,6 +637,10 @@ def main() -> None:
                 
                 formatted_result = format_backtest_result(result, config, price_monitor)
                 print(formatted_result)
+                
+                # Log final API stats
+                api_stats = price_monitor.get_api_stats()
+                logging.getLogger(__name__).info(f"Session total - API calls: {api_stats['api_calls_made']}, Cache hits: {api_stats['cache_hits']}")
                 
             except argparse.ArgumentTypeError as e:
                 logger.error(f"Date range error: {e}")

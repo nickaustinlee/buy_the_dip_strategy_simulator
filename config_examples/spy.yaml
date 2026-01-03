@@ -1,0 +1,86 @@
+# =============================================================================
+# Buy the Dip Strategy - Configuration Template
+# =============================================================================
+# Copy this file and customize it for your own strategy
+# 
+# Usage:
+#   1. Copy: cp config_examples/template.yaml my_strategy.yaml
+#   2. Edit: nano my_strategy.yaml (or use your favorite editor)
+#   3. Validate: python buy_the_dip.py --config my_strategy.yaml --validate-config
+#   4. Run: python buy_the_dip.py --config my_strategy.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Stock/ETF Selection
+# -----------------------------------------------------------------------------
+# Choose what to monitor - examples:
+#   "SPY"  - S&P 500 ETF (broad market, stable)
+#   "QQQ"  - NASDAQ-100 ETF (tech-heavy, more volatile)
+#   "VTI"  - Total Stock Market ETF (maximum diversification)
+#   "AAPL" - Apple stock (individual stock, higher risk)
+#   "IWM"  - Small-cap ETF (higher growth potential)
+ticker: "SPY"
+
+# -----------------------------------------------------------------------------
+# Rolling Window (Sensitivity to Recent Highs)
+# -----------------------------------------------------------------------------
+# How many days to look back for the "recent high"
+# Shorter = more sensitive to recent price movements
+# Longer = focuses on major trends
+#
+# Recommendations:
+#   30 days  - Very sensitive (catches short-term dips)
+#   60 days  - Balanced sensitivity
+#   90 days  - Standard approach (recommended)
+#   120+ days - Conservative (major corrections only)
+rolling_window_days: 60
+
+# -----------------------------------------------------------------------------
+# Trigger Threshold (When to Start Buying)
+# -----------------------------------------------------------------------------
+# Percentage of recent high that triggers buying
+# Formula: trigger_price = recent_high * percentage_trigger
+#
+# Examples:
+#   0.95 - Triggers on 5% drops (very aggressive)
+#   0.92 - Triggers on 8% drops (moderate)
+#   0.90 - Triggers on 10% drops (balanced)
+#   0.85 - Triggers on 15% drops (conservative)
+#   0.80 - Triggers on 20% drops (very conservative)
+percentage_trigger: 0.95
+
+# -----------------------------------------------------------------------------
+# Investment Amount
+# -----------------------------------------------------------------------------
+# How much to invest each month during active periods
+# Should align with your risk tolerance and available capital
+#
+# Guidelines:
+#   - Start with amounts you're comfortable losing
+#   - Consider your total investment portfolio
+#   - Higher amounts = higher potential returns and losses
+monthly_dca_amount: 5000.0
+
+# -----------------------------------------------------------------------------
+# Data Caching
+# -----------------------------------------------------------------------------
+# How long to cache price data (reduces API calls)
+# Longer = fewer API calls but potentially stale data
+#
+# Recommendations:
+#   15-30 days - For frequently changing strategies
+#   30-60 days - Standard usage
+#   90+ days   - For development or infrequent usage
+data_cache_days: 500
+
+# =============================================================================
+# Configuration Tips:
+#
+# 1. Start Conservative: Begin with longer windows and lower triggers
+# 2. Test First: Always validate with --validate-config
+# 3. Monitor Results: Check performance regularly with --report
+# 4. Adjust Gradually: Make small changes and observe results
+# 5. Diversify: Consider multiple strategies with different tickers
+#
+# Remember: This is a simulation tool for educational purposes only!
+# =============================================================================
