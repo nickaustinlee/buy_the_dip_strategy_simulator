@@ -635,12 +635,12 @@ def main() -> None:
                 logger.info(f"Running backtest from {start_date} to {end_date}")
                 result = strategy_system.run_backtest(start_date, end_date)
                 
-                formatted_result = format_backtest_result(result, config, price_monitor)
-                print(formatted_result)
-                
-                # Log final API stats
+                # Log final API stats before displaying results
                 api_stats = price_monitor.get_api_stats()
                 logging.getLogger(__name__).info(f"Session total - API calls: {api_stats['api_calls_made']}, Cache hits: {api_stats['cache_hits']}")
+                
+                formatted_result = format_backtest_result(result, config, price_monitor)
+                print(formatted_result)
                 
             except argparse.ArgumentTypeError as e:
                 logger.error(f"Date range error: {e}")
