@@ -1,0 +1,21 @@
+# =============================================================================
+# Small Cap Buy the Dip Strategy Configuration
+# =============================================================================
+# This configuration targets small-cap stocks through ETFs
+# Small caps are more volatile but offer higher growth potential
+# =============================================================================
+
+# Monitor iShares Russell 2000 ETF (small cap exposure)
+ticker: "IWM"
+
+# Use medium rolling window for small cap volatility
+rolling_window_days: 75
+
+# Trigger on moderate drops (small caps are more volatile)
+percentage_trigger: 0.87
+
+# Moderate investment amount due to higher volatility
+monthly_dca_amount: 1500.0
+
+# Cache data for standard period
+data_cache_days: 30

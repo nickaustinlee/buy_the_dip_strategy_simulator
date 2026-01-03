@@ -100,9 +100,86 @@ monthly_dca_amount: 1500.0  # $1,500/month
 - Company-focused investing
 - Higher volatility tolerance
 
+### 6. Balanced Strategy
+
+```bash
+poetry run python buy_the_dip.py --config config_examples/balanced.yaml
+```
+
+**Configuration details:**
+```yaml
+ticker: "SPY"  # S&P 500 ETF
+rolling_window_days: 60   # 2-month window
+percentage_trigger: 0.92  # 8% drop triggers
+monthly_dca_amount: 2000.0  # $2,000/month
+```
+
+**Best for:**
+- Moderate risk tolerance
+- Balanced approach between aggressive and conservative
+- Most general-purpose investors
+
+### 7. Dividend-Focused Strategy
+
+```bash
+poetry run python buy_the_dip.py --config config_examples/dividend_focused.yaml
+```
+
+**Configuration details:**
+```yaml
+ticker: "VIG"  # Vanguard Dividend Appreciation ETF
+rolling_window_days: 120  # 4-month window
+percentage_trigger: 0.89  # 11% drop triggers
+monthly_dca_amount: 2000.0  # $2,000/month
+```
+
+**Best for:**
+- Income-oriented investors
+- Dividend growth focus
+- Lower volatility preference
+
+### 8. Small Cap Strategy
+
+```bash
+poetry run python buy_the_dip.py --config config_examples/small_cap.yaml
+```
+
+**Configuration details:**
+```yaml
+ticker: "IWM"  # Russell 2000 Small Cap ETF
+rolling_window_days: 75   # 2.5-month window
+percentage_trigger: 0.87  # 13% drop triggers
+monthly_dca_amount: 1500.0  # $1,500/month
+```
+
+**Best for:**
+- Growth-focused investors
+- Higher risk tolerance
+- Small company exposure
+
+### 9. Crypto ETF Strategy
+
+```bash
+poetry run python buy_the_dip.py --config config_examples/crypto_etf.yaml
+```
+
+**Configuration details:**
+```yaml
+ticker: "BITO"  # Bitcoin ETF
+rolling_window_days: 45   # 1.5-month window
+percentage_trigger: 0.82  # 18% drop triggers
+monthly_dca_amount: 1000.0  # $1,000/month
+```
+
+**Best for:**
+- Cryptocurrency exposure
+- Very high risk tolerance
+- Speculative investing
+- **Warning**: Extremely volatile
+
 ## Advanced Usage
 
-### 6. Custom Configuration
+### 10. Custom Configuration
 
 Create your own configuration file:
 
@@ -120,7 +197,7 @@ Run with custom config:
 poetry run python buy_the_dip.py --config my_strategy.yaml
 ```
 
-### 7. Validate Configuration Before Running
+### 11. Validate Configuration Before Running
 
 ```bash
 poetry run python buy_the_dip.py --config my_strategy.yaml --validate-config
@@ -137,7 +214,7 @@ Validating configuration: my_strategy.yaml
 ✓ Cache: 60 days
 ```
 
-### 8. Multiple Strategy Comparison
+### 12. Multiple Strategy Comparison
 
 Run different strategies and compare results:
 
@@ -160,7 +237,7 @@ diff conservative_report.txt aggressive_report.txt
 
 ## Real-World Scenarios
 
-### 9. Market Crash Simulation
+### 13. Market Crash Simulation
 
 Test how the strategy performs during market downturns:
 
@@ -176,7 +253,7 @@ monthly_dca_amount: 5000.0  # Aggressive buying
 poetry run python buy_the_dip.py --config crash_strategy.yaml
 ```
 
-### 10. Sector-Specific Strategy
+### 14. Sector-Specific Strategy
 
 Focus on specific market sectors:
 
@@ -196,7 +273,7 @@ percentage_trigger: 0.88
 monthly_dca_amount: 1800.0
 ```
 
-### 11. International Markets
+### 15. International Markets
 
 Apply strategy to international ETFs:
 
@@ -218,7 +295,7 @@ monthly_dca_amount: 1000.0
 
 ## Monitoring and Analysis
 
-### 12. Continuous Monitoring Setup
+### 16. Continuous Monitoring Setup
 
 For ongoing strategy execution, you might want to run the strategy periodically:
 
@@ -238,7 +315,7 @@ chmod +x monitor_strategy.sh
 ./monitor_strategy.sh
 ```
 
-### 13. Performance Tracking
+### 17. Performance Tracking
 
 Track performance over time:
 
@@ -250,7 +327,7 @@ poetry run python buy_the_dip.py --report > "report_$(date +%Y%m%d).txt"
 ls report_*.txt | sort | tail -5  # Last 5 reports
 ```
 
-### 14. Backtesting Different Parameters
+### 18. Backtesting Different Parameters
 
 Test various trigger percentages:
 
@@ -283,7 +360,62 @@ echo "Trigger 0.95:"; grep "Strategy CAGR" backtest_0.95.txt
 
 ## Error Handling Examples
 
-### 15. Invalid Ticker Symbol
+## Error Handling Examples
+
+### 21. Cache Management and Validation
+
+```bash
+# Check what data is cached for a ticker
+poetry run python buy_the_dip.py --cache-info AAPL
+
+# Validate cached data against live API data
+poetry run python buy_the_dip.py --validate-cache AAPL
+
+# If validation fails, clear the cache
+poetry run python buy_the_dip.py --clear-cache AAPL
+
+# Run strategy with fresh data (ignoring cache)
+poetry run python buy_the_dip.py --ignore-cache --backtest
+```
+
+**Expected cache info output:**
+```
+📁 CACHE INFO - AAPL
+========================================
+Status: ✅ Cached
+Records: 45
+Date Range: 2024-10-15 to 2024-12-31
+```
+
+**Expected validation output (success):**
+```
+🔍 CACHE VALIDATION - AAPL
+==================================================
+Validation Status: ✅ PASSED
+Records Checked: 30
+Mismatches Found: 0
+
+✅ Cache data matches API data perfectly!
+```
+
+**Expected validation output (failure):**
+```
+🔍 CACHE VALIDATION - AAPL
+==================================================
+Validation Status: ❌ FAILED
+Records Checked: 30
+Mismatches Found: 5
+
+⚠️  Cache data does not match API data!
+Consider clearing the cache with --clear-cache
+
+Sample Mismatches:
+  2024-12-20: Cached=$150.25, API=$150.30
+  2024-12-19: Cached=$149.80, API=$149.85
+  2024-12-18: Cached=$151.10, API=$151.15
+```
+
+### 22. Invalid Ticker Symbol
 
 ```bash
 # This will show graceful error handling
@@ -303,7 +435,7 @@ ERROR: No data found for ticker INVALID_TICKER
 Please verify the ticker symbol is correct and try again.
 ```
 
-### 16. Invalid Configuration Values
+### 23. Invalid Configuration Values
 
 ```bash
 # This will show validation errors

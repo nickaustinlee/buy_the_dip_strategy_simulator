@@ -1,0 +1,3 @@
+**Always Use Poetry** This project uses poetry. You can use it to run pytests and such. 
+
+**Minimize Multiple Hops** I'm impatient so I'd prefer it if you read all the files you need upfront and then perform edits, rather than reading one file at a time and deciding to read more files and going back and forth with your thinking process. Just get as much context as you need upfront and stop wasting my time.

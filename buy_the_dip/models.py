@@ -105,3 +105,27 @@ class CAGRAnalysis(BaseModel):
     strategy_end_value: float = Field(ge=0.0)
     buyhold_start_value: float = Field(gt=0.0)
     buyhold_end_value: float = Field(gt=0.0)
+
+
+class Investment(BaseModel):
+    """Model for individual investment records."""
+    
+    model_config = ConfigDict(validate_assignment=True)
+    
+    date: date
+    ticker: str
+    price: float = Field(gt=0.0, description="Closing price on investment date")
+    amount: float = Field(gt=0.0, description="Dollar amount invested")
+    shares: float = Field(gt=0.0, description="Number of shares purchased (amount / price)")
+
+
+class PortfolioMetrics(BaseModel):
+    """Model for portfolio performance metrics."""
+    
+    model_config = ConfigDict(validate_assignment=True)
+    
+    total_invested: float = Field(ge=0.0, description="Total dollar amount invested")
+    total_shares: float = Field(ge=0.0, description="Total shares owned")
+    current_value: float = Field(ge=0.0, description="Current portfolio value (total_shares * current_price)")
+    total_return: float = Field(description="Total return (current_value - total_invested)")
+    percentage_return: float = Field(description="Percentage return (total_return / total_invested)")

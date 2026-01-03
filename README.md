@@ -15,9 +15,14 @@ A Python-based stock trading strategy simulator that implements a "buy the dip" 
 
 ## 📦 Installation
 
+### Quick Start
+New to the project? Check out the [Quick Start Guide](QUICKSTART.md) for a 5-minute setup and first run.
+
 ### Prerequisites
 - Python 3.13 or higher
 - Poetry (recommended) or pip
+
+For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md).
 
 ### Using Poetry (Recommended)
 
@@ -80,6 +85,8 @@ This will:
 
 ## 📋 Usage Examples
 
+For comprehensive usage examples and scenarios, see [EXAMPLES.md](EXAMPLES.md).
+
 ### Basic Usage
 
 Run the strategy with default configuration:
@@ -133,6 +140,25 @@ poetry run buy-the-dip --report --end-date 2024-12-31 --analysis-period 6m
 - `1y` = 1 year (365 days)
 - `2y` = 2 years (730 days)
 
+### Cache Management
+
+```bash
+# Show cache information for a ticker
+poetry run python buy_the_dip.py --cache-info SPY
+
+# Validate cached data against live API data
+poetry run python buy_the_dip.py --validate-cache SPY
+
+# Clear cache for a specific ticker
+poetry run python buy_the_dip.py --clear-cache SPY
+
+# Clear all cached data
+poetry run python buy_the_dip.py --clear-cache all
+
+# Ignore cache and fetch fresh data (for one-time use)
+poetry run python buy_the_dip.py --ignore-cache --backtest
+```
+
 ### Validate Configuration
 
 Validate a configuration file without running the strategy:
@@ -173,6 +199,22 @@ poetry run python buy_the_dip.py --config config_examples/individual_stock.yaml
 ## ⚙️ Configuration
 
 The strategy is configured via YAML files. The default configuration is in `config.yaml`.
+
+For comprehensive configuration guidance, see the [Configuration Guide](CONFIGURATION_GUIDE.md).
+
+### Available Example Configurations
+
+The `config_examples/` directory contains several pre-configured strategies:
+
+| Configuration | Risk Level | Description |
+|---------------|------------|-------------|
+| `conservative.yaml` | Low | 15% drops, $1K/month, 6-month window |
+| `balanced.yaml` | Medium | 8% drops, $2K/month, 2-month window |
+| `aggressive.yaml` | High | 5% drops, $3K/month, 1-month window |
+| `individual_stock.yaml` | High | 12% drops, $1.5K/month, Apple stock |
+| `dividend_focused.yaml` | Low-Medium | 11% drops, $2K/month, dividend ETF |
+| `small_cap.yaml` | High | 13% drops, $1.5K/month, small-cap ETF |
+| `crypto_etf.yaml` | Very High | 18% drops, $1K/month, Bitcoin ETF |
 
 ### Configuration Parameters
 

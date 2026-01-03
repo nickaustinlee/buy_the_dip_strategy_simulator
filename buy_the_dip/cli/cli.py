@@ -10,8 +10,185 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from ..config import ConfigurationManager
-from ..strategy_engine import StrategyEngine
-from ..simple_strategy import SimpleStrategy
+from ..strategy_system import StrategySystem, BacktestResult
+from ..price_monitor import PriceMonitor
+from ..investment_tracker import InvestmentTracker
+
+
+def validate_cached_data(price_monitor: PriceMonitor, ticker: str, max_records: int = 50) -> dict:
+    """
+    Validate cached data against live API data for a specific ticker.
+    Uses a hybrid sampling strategy:
+    - 20% most recent data (critical for current operations)
+    - 10% random sample from remaining data (broader coverage)
+    
+    Args:
+        price_monitor: PriceMonitor instance
+        ticker: Stock ticker to validate
+        max_records: Maximum number of records to validate (default: 50)
+        
+    Returns:
+        Dictionary with validation results
+    """
+    from datetime import date, timedelta
+    import pandas as pd
+    import random
+    
+    # Get cached data
+    cached_data = price_monitor._load_cached_data(ticker)
+    if cached_data is None or cached_data.empty:
+        return {
+            'valid': False,
+            'records_checked': 0,
+            'mismatches': 0,
+            'error': 'No cached data found'
+        }
+    
+    # Sort by date (newest first)
+    cached_data_sorted = cached_data.sort_values('Date', ascending=False)
+    total_records = len(cached_data_sorted)
+    
+    if total_records == 0:
+        return {
+            'valid': False,
+            'records_checked': 0,
+            'mismatches': 0,
+            'error': 'No cached data available'
+        }
+    
+    # Check if cache has less than 30 days of data - if so, validate entire cache
+    date_range_days = (cached_data_sorted['Date'].max() - cached_data_sorted['Date'].min()).days
+    
+    if date_range_days < 30 or total_records <= max_records:
+        # Small cache or fits within max_records - validate everything
+        validation_data = cached_data_sorted
+        recent_count = total_records
+        random_count = 0
+    else:
+        # Calculate sampling strategy for larger caches
+        recent_count = max(1, int(total_records * 0.20))  # 20% most recent
+        remaining_records = total_records - recent_count
+        random_count = max(0, int(remaining_records * 0.10))  # 10% of remaining
+        
+        # Cap total records to max_records
+        total_to_check = recent_count + random_count
+        if total_to_check > max_records:
+            # Prioritize recent data, adjust random sample
+            recent_count = min(recent_count, int(max_records * 0.7))  # At least 70% recent
+            random_count = max_records - recent_count
+        
+        # Get recent data (most important)
+        recent_cached = cached_data_sorted.head(recent_count)
+        
+        # Get random sample from remaining data
+        if random_count > 0 and remaining_records > 0:
+            remaining_data = cached_data_sorted.iloc[recent_count:]
+            if len(remaining_data) <= random_count:
+                # If remaining data is small, take all of it
+                random_cached = remaining_data
+            else:
+                # Random sample from remaining data
+                random_indices = random.sample(range(len(remaining_data)), random_count)
+                random_cached = remaining_data.iloc[random_indices]
+            
+            # Combine recent and random samples
+            validation_data = pd.concat([recent_cached, random_cached], ignore_index=True)
+        else:
+            validation_data = recent_cached
+    
+    if validation_data.empty:
+        return {
+            'valid': False,
+            'records_checked': 0,
+            'mismatches': 0,
+            'error': 'No data selected for validation'
+        }
+    
+    # Get date range from the validation data
+    start_date = validation_data['Date'].min()
+    end_date = validation_data['Date'].max()
+    
+    # Temporarily clear cache to force fresh API fetch
+    original_cache = price_monitor._cache.get(ticker)
+    original_cached_data = price_monitor._load_cached_data(ticker)
+    
+    # Clear both in-memory and persistent cache temporarily
+    price_monitor._cache.pop(ticker, None)
+    cache_file = price_monitor._get_cache_file_path(ticker)
+    cache_file_existed = cache_file.exists()
+    if cache_file_existed:
+        cache_file.rename(cache_file.with_suffix('.backup'))
+    
+    try:
+        # Fetch fresh data from API for the date range
+        fresh_data = price_monitor.fetch_price_data(ticker, start_date, end_date)
+        
+        if fresh_data.empty:
+            return {
+                'valid': False,
+                'records_checked': 0,
+                'mismatches': 0,
+                'error': 'Could not fetch fresh data from API',
+                'sampling_info': {
+                    'total_cached_records': total_records,
+                    'recent_records_checked': recent_count,
+                    'random_records_checked': random_count,
+                    'total_records_checked': len(validation_data),
+                    'validation_strategy': 'full_cache' if date_range_days < 30 or total_records <= max_records else 'hybrid_sampling',
+                    'cache_date_range_days': date_range_days
+                }
+            }
+        
+        # Compare cached vs fresh data
+        mismatches = []
+        records_checked = 0
+        
+        for _, cached_row in validation_data.iterrows():
+            cached_date = cached_row['Date']
+            cached_price = cached_row['Close']
+            
+            # Find matching date in fresh data
+            fresh_match = fresh_data[fresh_data['Date'] == cached_date]
+            if not fresh_match.empty:
+                fresh_price = fresh_match['Close'].iloc[0]
+                records_checked += 1
+                
+                # Check if prices match (allow small floating point differences)
+                if abs(cached_price - fresh_price) > 0.01:  # 1 cent tolerance
+                    mismatches.append({
+                        'date': cached_date,
+                        'cached': cached_price,
+                        'api': fresh_price,
+                        'difference': abs(cached_price - fresh_price)
+                    })
+        
+        return {
+            'valid': len(mismatches) == 0,
+            'records_checked': records_checked,
+            'mismatches': len(mismatches),
+            'sample_mismatches': mismatches[:5],  # First 5 mismatches
+            'sampling_info': {
+                'total_cached_records': total_records,
+                'recent_records_checked': recent_count,
+                'random_records_checked': random_count if random_count > 0 else 0,
+                'total_records_checked': len(validation_data),
+                'recent_percentage': round((recent_count / total_records) * 100, 1),
+                'random_percentage': round((random_count / max(1, total_records - recent_count)) * 100, 1) if random_count > 0 else 0,
+                'validation_strategy': 'full_cache' if date_range_days < 30 or total_records <= max_records else 'hybrid_sampling',
+                'cache_date_range_days': date_range_days
+            }
+        }
+        
+    finally:
+        # Restore original cache
+        if original_cache is not None:
+            price_monitor._cache[ticker] = original_cache
+        
+        # Restore persistent cache
+        if cache_file_existed:
+            backup_file = cache_file.with_suffix('.backup')
+            if backup_file.exists():
+                backup_file.rename(cache_file)
 
 
 def setup_logging(level: str = "INFO") -> None:
@@ -31,8 +208,8 @@ def parse_date(date_str: str) -> date:
         raise argparse.ArgumentTypeError(f"Invalid date format: {date_str}. Use YYYY-MM-DD format.")
 
 
-def parse_analysis_period(period_str: str) -> int:
-    """Parse analysis period string and return number of days."""
+def parse_period(period_str: str) -> int:
+    """Parse period string and return number of days."""
     period_str = period_str.lower().strip()
     
     if period_str.endswith('d'):
@@ -70,9 +247,9 @@ def resolve_date_range(args) -> Tuple[Optional[date], Optional[date]]:
     
     Priority:
     1. Explicit --start-date and --end-date
-    2. --end-date with --analysis-period
-    3. --start-date with --analysis-period (end date = today)
-    4. --analysis-period only (end date = today)
+    2. --end-date with --period
+    3. --start-date with --period (end date = today)
+    4. --period only (end date = today)
     5. Default: 1 year ago to today
     
     Returns:
@@ -88,9 +265,9 @@ def resolve_date_range(args) -> Tuple[Optional[date], Optional[date]]:
     if args.end_date:
         end_date = parse_date(args.end_date)
     
-    # Handle analysis period
-    if args.analysis_period:
-        period_days = parse_analysis_period(args.analysis_period)
+    # Handle period
+    if args.period:
+        period_days = parse_period(args.period)
         
         if end_date and not start_date:
             # End date specified, calculate start date
@@ -102,7 +279,12 @@ def resolve_date_range(args) -> Tuple[Optional[date], Optional[date]]:
             # Only period specified, use today as end date
             end_date = date.today()
             start_date = end_date - timedelta(days=period_days)
-        # If both dates specified, ignore analysis period
+        # If both dates specified, ignore period
+    
+    # Default to 1 year if no dates specified
+    if not start_date and not end_date:
+        end_date = date.today()
+        start_date = end_date - timedelta(days=365)
     
     # Validate date range
     if start_date and end_date:
@@ -110,6 +292,106 @@ def resolve_date_range(args) -> Tuple[Optional[date], Optional[date]]:
             raise argparse.ArgumentTypeError("Start date must be before end date")
     
     return start_date, end_date
+
+
+def format_backtest_result(result: BacktestResult, config) -> str:
+    """Format backtest result for display."""
+    lines = []
+    lines.append(f"\n🎯 BACKTEST RESULTS - {config.ticker}")
+    lines.append("=" * 60)
+    lines.append(f"Period: {result.start_date} to {result.end_date}")
+    lines.append(f"Total Trading Days Evaluated: {result.total_evaluations}")
+    lines.append(f"Trigger Conditions Met: {result.trigger_conditions_met}")
+    lines.append(f"Investments Executed: {result.investments_executed}")
+    lines.append(f"Investments Blocked (28-day rule): {result.investments_blocked_by_constraint}")
+    lines.append("")
+    
+    # Portfolio metrics
+    portfolio = result.final_portfolio
+    lines.append("📊 PORTFOLIO PERFORMANCE")
+    lines.append("-" * 30)
+    lines.append(f"Total Invested: ${portfolio.total_invested:,.2f}")
+    lines.append(f"Total Shares: {portfolio.total_shares:.4f}")
+    lines.append(f"Current Value: ${portfolio.current_value:,.2f}")
+    lines.append(f"Total Return: ${portfolio.total_return:,.2f}")
+    
+    if portfolio.total_invested > 0:
+        lines.append(f"Percentage Return: {portfolio.percentage_return:.2%}")
+    else:
+        lines.append("Percentage Return: N/A (no investments)")
+    
+    lines.append("")
+    
+    # Investment history
+    if result.all_investments:
+        lines.append("💰 INVESTMENT HISTORY")
+        lines.append("-" * 30)
+        for inv in result.all_investments:
+            lines.append(f"{inv.date}: ${inv.amount:,.2f} at ${inv.price:.2f} = {inv.shares:.4f} shares")
+    else:
+        lines.append("💰 No investments were executed during this period")
+    
+    return "\n".join(lines)
+
+
+def format_evaluation_result(result, config) -> str:
+    """Format single day evaluation result for display."""
+    lines = []
+    lines.append(f"\n🎯 EVALUATION RESULT - {config.ticker} on {result.evaluation_date}")
+    lines.append("=" * 60)
+    lines.append(f"Yesterday's Price: ${result.yesterday_price:.2f}")
+    lines.append(f"Trigger Price: ${result.trigger_price:.2f}")
+    lines.append(f"Rolling Maximum ({config.rolling_window_days}d): ${result.rolling_maximum:.2f}")
+    lines.append(f"Trigger Met: {'✅ YES' if result.trigger_met else '❌ NO'}")
+    lines.append(f"Recent Investment Exists: {'✅ YES' if result.recent_investment_exists else '❌ NO'}")
+    lines.append("")
+    
+    if result.investment_executed:
+        lines.append("🚀 INVESTMENT EXECUTED!")
+        lines.append(f"Amount: ${result.investment.amount:,.2f}")
+        lines.append(f"Price: ${result.investment.price:.2f}")
+        lines.append(f"Shares: {result.investment.shares:.4f}")
+    elif result.trigger_met and result.recent_investment_exists:
+        lines.append("⏸️  Investment blocked by 28-day constraint")
+    elif not result.trigger_met:
+        lines.append("⏸️  Trigger condition not met")
+    else:
+        lines.append("⏸️  No investment executed")
+    
+    return "\n".join(lines)
+
+
+def format_portfolio_status(tracker: InvestmentTracker, current_price: float, config) -> str:
+    """Format current portfolio status for display."""
+    investments = tracker.get_all_investments()
+    
+    if not investments:
+        return f"\n📊 PORTFOLIO STATUS - {config.ticker}\n" + "=" * 50 + "\nNo investments found."
+    
+    metrics = tracker.calculate_portfolio_metrics(current_price)
+    
+    lines = []
+    lines.append(f"\n📊 PORTFOLIO STATUS - {config.ticker}")
+    lines.append("=" * 50)
+    lines.append(f"Current Price: ${current_price:.2f}")
+    lines.append(f"Total Invested: ${metrics.total_invested:,.2f}")
+    lines.append(f"Total Shares: {metrics.total_shares:.4f}")
+    lines.append(f"Current Value: ${metrics.current_value:,.2f}")
+    lines.append(f"Total Return: ${metrics.total_return:,.2f}")
+    lines.append(f"Percentage Return: {metrics.percentage_return:.2%}")
+    lines.append("")
+    
+    # Recent investments
+    recent_investments = sorted(investments, key=lambda x: x.date, reverse=True)[:5]
+    lines.append("💰 RECENT INVESTMENTS (Last 5)")
+    lines.append("-" * 30)
+    for inv in recent_investments:
+        lines.append(f"{inv.date}: ${inv.amount:,.2f} at ${inv.price:.2f} = {inv.shares:.4f} shares")
+    
+    if len(investments) > 5:
+        lines.append(f"... and {len(investments) - 5} more investments")
+    
+    return "\n".join(lines)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -125,21 +407,21 @@ def create_parser() -> argparse.ArgumentParser:
     )
     
     parser.add_argument(
+        "--backtest",
+        action="store_true",
+        help="Run backtest for historical evaluation"
+    )
+    
+    parser.add_argument(
+        "--evaluate",
+        type=str,
+        help="Evaluate a specific date (YYYY-MM-DD format)"
+    )
+    
+    parser.add_argument(
         "--status",
         action="store_true",
-        help="Check current market status and buy-the-dip recommendation"
-    )
-    
-    parser.add_argument(
-        "--quick-status",
-        action="store_true",
-        help="Get a quick one-line status update"
-    )
-    
-    parser.add_argument(
-        "--report",
-        action="store_true",
-        help="Generate and display strategy performance report"
+        help="Show current portfolio status and metrics"
     )
     
     parser.add_argument(
@@ -155,29 +437,50 @@ def create_parser() -> argparse.ArgumentParser:
         help="Set logging level"
     )
     
-    # Date range options for analysis
+    # Date range options for backtest
     parser.add_argument(
         "--start-date",
         type=str,
-        help="Analysis start date (YYYY-MM-DD format, e.g., 2023-01-01)"
+        help="Backtest start date (YYYY-MM-DD format, e.g., 2023-01-01)"
     )
     
     parser.add_argument(
         "--end-date", 
         type=str,
-        help="Analysis end date (YYYY-MM-DD format, e.g., 2024-12-31)"
+        help="Backtest end date (YYYY-MM-DD format, e.g., 2024-12-31)"
     )
     
     parser.add_argument(
-        "--analysis-period",
+        "--period",
         type=str,
-        help="Analysis period from end date (e.g., '1y', '6m', '90d', '2y')"
+        help="Backtest period from end date (e.g., '1y', '6m', '90d', '2y')"
+    )
+    
+    # Cache management options
+    parser.add_argument(
+        "--clear-cache",
+        type=str,
+        nargs="?",
+        const="all",
+        help="Clear price data cache (specify ticker or 'all' for everything)"
     )
     
     parser.add_argument(
-        "--simple",
+        "--cache-info",
+        type=str,
+        help="Show cache information for a specific ticker"
+    )
+    
+    parser.add_argument(
+        "--ignore-cache",
         action="store_true",
-        help="Use simplified strategy implementation (cleaner logic)"
+        help="Ignore cached data and fetch fresh data from API"
+    )
+    
+    parser.add_argument(
+        "--validate-cache",
+        type=str,
+        help="Validate cached data against live API data for a ticker"
     )
     
     return parser
@@ -203,95 +506,142 @@ def main() -> None:
         config_manager = ConfigurationManager()
         config = config_manager.load_config(args.config)
         
-        if not (args.status or args.quick_status):
-            logger.info(f"Loaded configuration for ticker: {config.ticker}")
-            logger.info(f"Rolling window: {config.rolling_window_days} days")
-            logger.info(f"Trigger percentage: {config.percentage_trigger:.1%}")
-            logger.info(f"Monthly DCA amount: ${config.monthly_dca_amount:.2f}")
+        logger.info(f"Loaded configuration for ticker: {config.ticker}")
+        logger.info(f"Rolling window: {config.rolling_window_days} days")
+        logger.info(f"Trigger percentage: {config.percentage_trigger:.1%}")
+        logger.info(f"Monthly DCA amount: ${config.monthly_dca_amount:.2f}")
         
         if args.validate_config:
             logger.info("Configuration validation successful")
             return
         
-        # Initialize strategy engine
-        engine = StrategyEngine()
-        engine.initialize(config)
+        # Initialize strategy system
+        price_monitor = PriceMonitor()
         
-        if args.quick_status:
-            # Quick one-line status
-            print(engine.get_quick_status())
-            return
-        
-        if args.status:
-            # Detailed market status
-            status = engine.get_market_status()
-            
-            print(f"\n🎯 BUY THE DIP STATUS - {status.ticker}")
-            print("=" * 50)
-            print(f"Current Price:     ${status.current_price:.2f}")
-            print(f"Rolling Max ({config.rolling_window_days}d): ${status.rolling_max_price:.2f}")
-            print(f"Trigger Price:     ${status.trigger_price:.2f}")
-            print(f"From High:         {status.percentage_from_max:+.1f}%")
-            print(f"")
-            print(f"🎯 RECOMMENDATION: {status.recommendation} ({status.confidence_level} confidence)")
-            print(f"💬 {status.message}")
-            print(f"")
-            print(f"⏰ Last Updated: {status.last_updated.strftime('%Y-%m-%d %H:%M:%S')}")
-            
-            if status.is_buy_the_dip_time:
-                print(f"\n🚨 ACTION REQUIRED: Consider investing your DCA amount of ${config.monthly_dca_amount:.2f}")
+        # Handle cache management commands first
+        if args.clear_cache:
+            if args.clear_cache.lower() == "all":
+                price_monitor.clear_cache()
+                logger.info("Cleared all price data cache")
             else:
-                distance_to_trigger = ((status.trigger_price - status.current_price) / status.current_price) * 100
-                distance_percentage = abs(distance_to_trigger)
-                print(f"\n📊 Price needs to drop by {distance_percentage:.1f}% to trigger buy signal")
-            
+                price_monitor.clear_cache(args.clear_cache.upper())
+                logger.info(f"Cleared cache for {args.clear_cache.upper()}")
             return
         
-        if args.report:
-            # Resolve date range from CLI arguments
+        if args.cache_info:
+            cache_info = price_monitor.get_cache_info(args.cache_info.upper())
+            print(f"\n📁 CACHE INFO - {cache_info['ticker']}")
+            print("=" * 40)
+            if cache_info['cached']:
+                print(f"Status: ✅ Cached")
+                print(f"Records: {cache_info['records']}")
+                print(f"Date Range: {cache_info['date_range']['start']} to {cache_info['date_range']['end']}")
+            else:
+                print(f"Status: ❌ No cached data")
+            return
+        
+        if args.validate_cache:
+            # This will be handled by the new cache validation functionality
+            ticker = args.validate_cache.upper()
+            logger.info(f"Validating cached data for {ticker} against live API data...")
+            
+            try:
+                # Run cache validation
+                validation_result = validate_cached_data(price_monitor, ticker)
+                print(f"\n🔍 CACHE VALIDATION - {ticker}")
+                print("=" * 50)
+                print(f"Validation Status: {'✅ PASSED' if validation_result['valid'] else '❌ FAILED'}")
+                print(f"Records Checked: {validation_result['records_checked']}")
+                print(f"Mismatches Found: {validation_result['mismatches']}")
+                
+                # Show sampling information
+                if 'sampling_info' in validation_result:
+                    info = validation_result['sampling_info']
+                    print(f"\n📊 VALIDATION STRATEGY: {info['validation_strategy'].replace('_', ' ').title()}")
+                    print(f"Total Cached Records: {info['total_cached_records']}")
+                    print(f"Cache Date Range: {info['cache_date_range_days']} days")
+                    
+                    if info['validation_strategy'] == 'full_cache':
+                        print(f"Validated All Records: {info['total_records_checked']}")
+                    else:
+                        print(f"Recent Records Checked: {info['recent_records_checked']} ({info['recent_percentage']}% of total)")
+                        if info['random_records_checked'] > 0:
+                            print(f"Random Sample Checked: {info['random_records_checked']} ({info['random_percentage']}% of remaining)")
+                        print(f"Total Validation Coverage: {info['total_records_checked']} records")
+                
+                if validation_result['mismatches'] > 0:
+                    print("\n⚠️  Cache data does not match API data!")
+                    print("Consider clearing the cache with --clear-cache")
+                    
+                    if validation_result.get('sample_mismatches'):
+                        print("\nSample Mismatches:")
+                        for mismatch in validation_result['sample_mismatches'][:3]:
+                            print(f"  {mismatch['date']}: Cached=${mismatch['cached']:.2f}, API=${mismatch['api']:.2f}")
+                else:
+                    print("\n✅ Cache data matches API data perfectly!")
+                    
+            except Exception as e:
+                logger.error(f"Cache validation failed: {e}")
+                sys.exit(1)
+            return
+        
+        investment_tracker = InvestmentTracker()
+        strategy_system = StrategySystem(config, price_monitor, investment_tracker)
+        
+        # Set ignore cache flag if specified
+        if args.ignore_cache:
+            logger.info("Ignoring cached data - will fetch fresh data from API")
+            # Clear cache temporarily for this run
+            price_monitor.clear_cache(config.ticker)
+        
+        if args.backtest:
+            # Run backtest
             try:
                 start_date, end_date = resolve_date_range(args)
                 
-                # Log the analysis period being used
-                if start_date and end_date:
-                    period_days = (end_date - start_date).days
-                    logger.info(f"Analyzing period: {start_date} to {end_date} ({period_days} days)")
-                else:
-                    logger.info("Using default 1-year analysis period")
+                logger.info(f"Running backtest from {start_date} to {end_date}")
+                result = strategy_system.run_backtest(start_date, end_date)
                 
-                if args.simple:
-                    # Use simple strategy implementation
-                    logger.info("Using simplified strategy implementation")
-                    simple_strategy = SimpleStrategy()
-                    
-                    # Set default date range if not provided
-                    if not start_date or not end_date:
-                        end_date = date.today()
-                        start_date = end_date - timedelta(days=365)
-                    
-                    result = simple_strategy.run_backtest(config, start_date, end_date)
-                    formatted_report = simple_strategy.format_results(result, config.ticker, start_date, end_date)
-                    print(formatted_report)
-                else:
-                    # Use complex strategy implementation
-                    report = engine.generate_report(include_cagr=True, cagr_start_date=start_date, cagr_end_date=end_date)
-                    
-                    # Get the transactions used in the analysis
-                    transactions = engine.get_analysis_transactions(start_date, end_date)
-                    
-                    # Use the comprehensive formatted report
-                    formatted_report = engine.format_comprehensive_report(report, transactions)
-                    print(formatted_report)
+                formatted_result = format_backtest_result(result, config)
+                print(formatted_result)
                 
             except argparse.ArgumentTypeError as e:
                 logger.error(f"Date range error: {e}")
                 sys.exit(1)
+                
+        elif args.evaluate:
+            # Evaluate specific date
+            try:
+                eval_date = parse_date(args.evaluate)
+                result = strategy_system.evaluate_trading_day(eval_date)
+                
+                formatted_result = format_evaluation_result(result, config)
+                print(formatted_result)
+                
+            except argparse.ArgumentTypeError as e:
+                logger.error(f"Date format error: {e}")
+                sys.exit(1)
+            except ValueError as e:
+                logger.error(f"Evaluation error: {e}")
+                sys.exit(1)
+                
+        elif args.status:
+            # Show portfolio status
+            try:
+                current_price = price_monitor.get_current_price(config.ticker)
+                formatted_status = format_portfolio_status(investment_tracker, current_price, config)
+                print(formatted_status)
+                
+            except Exception as e:
+                logger.error(f"Failed to get portfolio status: {e}")
+                sys.exit(1)
+                
         else:
-            # Run the strategy
-            engine.run_strategy()
+            # Default: show help
+            parser.print_help()
             
     except Exception as e:
-        logger.error(f"Strategy execution failed: {e}")
+        logger.error(f"Application error: {e}")
         sys.exit(1)
 
 

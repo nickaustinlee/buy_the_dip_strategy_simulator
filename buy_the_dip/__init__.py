@@ -23,6 +23,9 @@ __all__ = [
     "StrategyState",
     "CAGRAnalysis",
     "CAGRAnalysisEngine",
+    "Investment",
+    "PortfolioMetrics",
+    "InvestmentTracker",
 ]
 
 def __getattr__(name: str) -> type:
@@ -63,5 +66,14 @@ def __getattr__(name: str) -> type:
     elif name == "CAGRAnalysisEngine":
         from .analysis import CAGRAnalysisEngine
         return CAGRAnalysisEngine
+    elif name == "Investment":
+        from .models import Investment
+        return Investment
+    elif name == "PortfolioMetrics":
+        from .models import PortfolioMetrics
+        return PortfolioMetrics
+    elif name == "InvestmentTracker":
+        from .investment_tracker import InvestmentTracker
+        return InvestmentTracker
     else:
         raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

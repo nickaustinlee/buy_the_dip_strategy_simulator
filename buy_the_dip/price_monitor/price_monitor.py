@@ -227,20 +227,26 @@ class PriceMonitor:
             self._yf = yf
         return self._yf
     
-    def fetch_price_data(self, ticker: str, start_date: date, end_date: date) -> pd.DataFrame:
+    def fetch_price_data(self, ticker: str, start_date: date, end_date: date, ignore_cache: bool = False) -> pd.DataFrame:
         """
         Fetch price data for a ticker within the specified date range.
-        Uses persistent cache to avoid redundant API calls.
+        Uses persistent cache to avoid redundant API calls unless ignore_cache is True.
         
         Args:
             ticker: Stock ticker symbol
             start_date: Start date for data retrieval
             end_date: End date for data retrieval
+            ignore_cache: If True, bypass cache and fetch fresh data from API
             
         Returns:
             DataFrame with price data
         """
         ticker = ticker.upper()
+        
+        if ignore_cache:
+            # Force fresh fetch from API
+            logger.debug(f"Ignoring cache for {ticker} - fetching fresh data from API")
+            return self._fetch_fresh_data(ticker, start_date, end_date)
         
         # Check if we have all the data in cache
         cached_data = self._load_cached_data(ticker)
@@ -307,6 +313,82 @@ class PriceMonitor:
         
         return result
     
+    def _fetch_fresh_data(self, ticker: str, start_date: date, end_date: date) -> pd.DataFrame:
+        """
+        Fetch fresh data from API without using cache.
+        
+        Args:
+            ticker: Stock ticker symbol
+            start_date: Start date for data retrieval
+            end_date: End date for data retrieval
+            
+        Returns:
+            DataFrame with fresh price data
+        """
+        try:
+            yf = self._get_yfinance()
+            stock = yf.Ticker(ticker)
+            data = stock.history(start=start_date, end=end_date + timedelta(days=1))
+            
+            if not data.empty:
+                # Keep only the Close column and reset index to have Date as a column
+                fresh_data = data[['Close']].reset_index()
+                fresh_data.columns = ['Date', 'Close']
+                fresh_data['Date'] = fresh_data['Date'].dt.date
+                
+                return fresh_data
+            else:
+                self._log_no_data_reason(ticker, start_date, end_date)
+                return pd.DataFrame()
+                
+        except Exception as e:
+            logger.error(f"Failed to fetch fresh price data for {ticker} ({start_date} to {end_date}): {e}")
+            return pd.DataFrame()
+    
+    def get_closing_prices(self, ticker: str, start_date: date, end_date: date) -> pd.Series:
+        """
+        Get closing prices for a ticker within the specified date range.
+        Returns a pandas Series with dates as index and closing prices as values.
+        
+        Args:
+            ticker: Stock ticker symbol
+            start_date: Start date for data retrieval
+            end_date: End date for data retrieval
+            
+        Returns:
+            Series with closing prices indexed by date
+        """
+        data = self.fetch_price_data(ticker, start_date, end_date)
+        if data.empty:
+            return pd.Series(dtype=float)
+        
+        # Convert to Series with Date as index
+        series = pd.Series(data['Close'].values, index=data['Date'], name='Close')
+        return series
+    
+    def is_cache_valid(self, ticker: str, cache_days: int = 30) -> bool:
+        """
+        Check if cached data for a ticker is still valid based on cache expiration.
+        
+        Args:
+            ticker: Stock ticker symbol
+            cache_days: Number of days after which cache is considered stale
+            
+        Returns:
+            True if cache is valid, False otherwise
+        """
+        ticker = ticker.upper()
+        cached_data = self._load_cached_data(ticker)
+        
+        if cached_data is None or cached_data.empty:
+            return False
+        
+        # Check if we have recent data within cache_days
+        latest_cached_date = cached_data['Date'].max()
+        days_since_update = (date.today() - latest_cached_date).days
+        
+        return days_since_update <= cache_days
+    
     def get_rolling_maximum(self, prices: pd.Series, window: int) -> pd.Series:
         """
         Calculate rolling maximum for the given price series.
@@ -319,6 +401,20 @@ class PriceMonitor:
             Series with rolling maximum values
         """
         return prices.rolling(window=window, min_periods=1).max()
+    
+    def calculate_rolling_maximum(self, prices: pd.Series, window_days: int) -> float:
+        """
+        Calculate rolling maximum for the given price series and return the latest value.
+        
+        Args:
+            prices: Series of price values
+            window_days: Rolling window size in days
+            
+        Returns:
+            Latest rolling maximum value
+        """
+        rolling_max = self.get_rolling_maximum(prices, window_days)
+        return float(rolling_max.iloc[-1]) if not rolling_max.empty else 0.0
     
     def get_current_price(self, ticker: str) -> float:
         """
@@ -381,6 +477,19 @@ class PriceMonitor:
         except Exception as e:
             logger.error(f"Failed to get current price for {ticker}: {e}")
             raise
+    
+    def get_latest_closing_price(self, ticker: str) -> float:
+        """
+        Get the latest closing price for a ticker.
+        Alias for get_current_price() to match design document interface.
+        
+        Args:
+            ticker: Stock ticker symbol
+            
+        Returns:
+            Latest closing price
+        """
+        return self.get_current_price(ticker)
     
     def update_cache(self, ticker: str, new_data: pd.DataFrame) -> None:
         """

@@ -1,0 +1,21 @@
+# =============================================================================
+# Cryptocurrency ETF Buy the Dip Strategy Configuration
+# =============================================================================
+# This configuration applies the strategy to cryptocurrency ETFs
+# Note: Crypto ETFs are highly volatile - use with caution
+# =============================================================================
+
+# Monitor Bitcoin ETF (example crypto exposure)
+ticker: "BITO"
+
+# Use shorter rolling window due to crypto volatility
+rolling_window_days: 45
+
+# Trigger on larger drops due to high volatility
+percentage_trigger: 0.82
+
+# Smaller investment amount due to higher risk
+monthly_dca_amount: 1000.0
+
+# Cache data for shorter period due to volatility
+data_cache_days: 15

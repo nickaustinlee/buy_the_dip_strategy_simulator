@@ -2,7 +2,7 @@
 
 ## Introduction
 
-A Python-based stock trading strategy that implements a simplified "buy the dip" approach. The system evaluates each trading day independently, checking if yesterday's closing price was at or below a dynamically calculated trigger price. When conditions are met and no investment has been made in the past 28 days, it executes a buy at the closing price.
+A Python-based stock trading strategy that implements a simplified "buy the dip" approach. The system evaluates each trading day independently, checking if yesterday's closing price was at or below a dynamically calculated trigger price. When conditions are met and no investment has been made in the past 27 days (allowing same weekday pattern with 28-day spacing), it executes a buy at the closing price.
 
 ## Glossary
 
@@ -67,7 +67,7 @@ A Python-based stock trading strategy that implements a simplified "buy the dip"
 
 1. WHEN evaluating a trading day, THE Strategy_System SHALL check if yesterday's closing price is less than or equal to the trigger price
 2. WHEN yesterday's closing price meets the trigger condition, THE Strategy_System SHALL check if any investment was made in the past 28 days
-3. WHEN no investment was made in the past 28 days AND trigger condition is met, THE Strategy_System SHALL execute a buy
+2. WHEN no investment was made in the past 27 days AND trigger condition is met, THE Strategy_System SHALL execute a buy
 4. WHEN a buy is executed, THE Strategy_System SHALL use the current day's closing price
 5. WHEN a buy is executed, THE Strategy_System SHALL invest exactly the monthly_dca_amount
 6. THE Strategy_System SHALL evaluate each trading day independently
@@ -78,11 +78,12 @@ A Python-based stock trading strategy that implements a simplified "buy the dip"
 
 #### Acceptance Criteria
 
-1. WHEN checking investment eligibility, THE Strategy_System SHALL examine all investments in the past 28 calendar days
-2. WHEN any investment exists within the past 28 days, THE Strategy_System SHALL prevent new investments
-3. WHEN no investments exist within the past 28 days, THE Strategy_System SHALL allow new investments if other conditions are met
+1. WHEN checking investment eligibility, THE Strategy_System SHALL examine all investments in the past 27 calendar days (exclusive of the 28th day)
+2. WHEN any investment exists within the past 27 days, THE Strategy_System SHALL prevent new investments
+3. WHEN no investments exist within the past 27 days, THE Strategy_System SHALL allow new investments if other conditions are met
 4. THE Strategy_System SHALL use calendar days (not trading days) for the 28-day calculation
 5. THE Strategy_System SHALL maintain this constraint as an invariant across all operations
+6. WHEN an investment was made exactly 28 days ago, THE Strategy_System SHALL allow a new investment (enabling same weekday pattern)
 
 ### Requirement 6: Investment Execution and Logging
 

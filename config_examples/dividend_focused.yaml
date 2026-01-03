@@ -1,0 +1,21 @@
+# =============================================================================
+# Dividend-Focused Buy the Dip Strategy Configuration
+# =============================================================================
+# This configuration targets dividend-focused ETFs for income-oriented
+# investors seeking both capital appreciation and dividend income.
+# =============================================================================
+
+# Monitor Vanguard Dividend Appreciation ETF
+ticker: "VIG"
+
+# Use longer rolling window for dividend stocks (less volatile)
+rolling_window_days: 120
+
+# Trigger on moderate drops (dividend stocks are typically more stable)
+percentage_trigger: 0.89
+
+# Standard investment amount
+monthly_dca_amount: 2000.0
+
+# Cache data for longer period (dividend stocks change less frequently)
+data_cache_days: 60
