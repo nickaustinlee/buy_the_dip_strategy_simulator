@@ -48,23 +48,77 @@ class PriceMonitor:
         if check_date.weekday() >= 5:  # Saturday = 5, Sunday = 6
             return True
         
-        # Check for common US holidays (simplified list)
+        # Check for common US market holidays
         year = check_date.year
+        month = check_date.month
+        day = check_date.day
+        weekday = check_date.weekday()  # Monday = 0, Sunday = 6
         
-        # New Year's Day
-        if check_date.month == 1 and check_date.day == 1:
+        # New Year's Day (or observed)
+        if month == 1 and day == 1:
+            return True
+        # New Year's observed on Friday if falls on Saturday
+        if month == 12 and day == 31 and weekday == 4:  # Friday
+            return True
+        # New Year's observed on Monday if falls on Sunday
+        if month == 1 and day == 2 and weekday == 0:  # Monday
             return True
         
-        # Independence Day
-        if check_date.month == 7 and check_date.day == 4:
+        # Martin Luther King Jr. Day (3rd Monday in January)
+        if month == 1 and weekday == 0 and 15 <= day <= 21:
             return True
         
-        # Christmas Day
-        if check_date.month == 12 and check_date.day == 25:
+        # Presidents' Day (3rd Monday in February)
+        if month == 2 and weekday == 0 and 15 <= day <= 21:
             return True
         
-        # Thanksgiving (4th Thursday in November) - simplified check
-        if check_date.month == 11 and check_date.weekday() == 3 and 22 <= check_date.day <= 28:
+        # Good Friday (Friday before Easter - approximate check for common dates)
+        # This is a simplified check for common Good Friday dates
+        if month == 3 and weekday == 4 and 20 <= day <= 26:
+            return True
+        if month == 4 and weekday == 4 and 10 <= day <= 23:
+            return True
+        
+        # Memorial Day (last Monday in May)
+        if month == 5 and weekday == 0 and day >= 25:
+            return True
+        
+        # Juneteenth (June 19, or observed)
+        if month == 6 and day == 19:
+            return True
+        # Juneteenth observed on Friday if falls on Saturday
+        if month == 6 and day == 18 and weekday == 4:
+            return True
+        # Juneteenth observed on Monday if falls on Sunday
+        if month == 6 and day == 20 and weekday == 0:
+            return True
+        
+        # Independence Day (July 4, or observed)
+        if month == 7 and day == 4:
+            return True
+        # July 4th observed on Friday if falls on Saturday
+        if month == 7 and day == 3 and weekday == 4:
+            return True
+        # July 4th observed on Monday if falls on Sunday
+        if month == 7 and day == 5 and weekday == 0:
+            return True
+        
+        # Labor Day (1st Monday in September)
+        if month == 9 and weekday == 0 and day <= 7:
+            return True
+        
+        # Thanksgiving (4th Thursday in November)
+        if month == 11 and weekday == 3 and 22 <= day <= 28:
+            return True
+        
+        # Christmas Day (December 25, or observed)
+        if month == 12 and day == 25:
+            return True
+        # Christmas observed on Friday if falls on Saturday
+        if month == 12 and day == 24 and weekday == 4:
+            return True
+        # Christmas observed on Monday if falls on Sunday
+        if month == 12 and day == 26 and weekday == 0:
             return True
         
         return False
@@ -72,12 +126,17 @@ class PriceMonitor:
     def _log_no_data_reason(self, ticker: str, start_date: date, end_date: date) -> None:
         """
         Log an appropriate message when no data is available for a date range.
+        Only logs in DEBUG mode - holidays/weekends are normal and expected.
         
         Args:
             ticker: Stock ticker symbol
             start_date: Start date of the range
             end_date: End date of the range
         """
+        # Only log if we're in DEBUG mode - missing data for holidays is normal
+        if logger.getEffectiveLevel() > logging.DEBUG:
+            return
+        
         # Check if the entire range consists of non-trading days
         current_date = start_date
         all_non_trading = True
@@ -191,8 +250,15 @@ class PriceMonitor:
         if not missing_dates:
             return []  # All data is cached
         
+        # Filter out likely non-trading days from missing dates to reduce noise
+        missing_dates_filtered = [d for d in missing_dates if not self._is_likely_non_trading_day(d)]
+        
+        if not missing_dates_filtered:
+            # All missing dates are likely holidays/weekends - still return them but they won't generate warnings
+            return []
+        
         # Convert missing dates to contiguous ranges
-        missing_dates_sorted = sorted(missing_dates)
+        missing_dates_sorted = sorted(missing_dates_filtered)
         ranges = []
         range_start = missing_dates_sorted[0]
         range_end = missing_dates_sorted[0]

@@ -294,7 +294,7 @@ def resolve_date_range(args) -> Tuple[Optional[date], Optional[date]]:
     return start_date, end_date
 
 
-def format_backtest_result(result: BacktestResult, config) -> str:
+def format_backtest_result(result: BacktestResult, config, price_monitor: PriceMonitor) -> str:
     """Format backtest result for display."""
     lines = []
     lines.append(f"\n🎯 BACKTEST RESULTS - {config.ticker}")
@@ -316,9 +316,38 @@ def format_backtest_result(result: BacktestResult, config) -> str:
     lines.append(f"Total Return: ${portfolio.total_return:,.2f}")
     
     if portfolio.total_invested > 0:
-        lines.append(f"Percentage Return: {portfolio.percentage_return:.2%}")
+        lines.append(f"Strategy Return: {portfolio.percentage_return:.2%}")
     else:
-        lines.append("Percentage Return: N/A (no investments)")
+        lines.append("Strategy Return: N/A (no investments)")
+    
+    # Buy-and-hold comparison
+    if result.all_investments:
+        try:
+            # Get start and end prices for buy-and-hold comparison
+            # Data should already be cached from backtest, so this should be fast
+            price_monitor_logger = logging.getLogger('buy_the_dip.price_monitor.price_monitor')
+            original_level = price_monitor_logger.level
+            price_monitor_logger.setLevel(logging.ERROR)
+            
+            price_data = price_monitor.fetch_price_data(config.ticker, result.start_date, result.end_date)
+            
+            price_monitor_logger.setLevel(original_level)
+            
+            if not price_data.empty:
+                start_price = float(price_data.iloc[0]['Close'])
+                end_price = float(price_data.iloc[-1]['Close'])
+                buyhold_return = (end_price - start_price) / start_price
+                
+                lines.append("")
+                lines.append("📈 COMPARISON - Strategy vs Buy-and-Hold")
+                lines.append("-" * 30)
+                lines.append(f"Strategy Return: {portfolio.percentage_return:.2%}")
+                lines.append(f"Buy-and-Hold Return: {buyhold_return:.2%}")
+                lines.append(f"Outperformance: {(portfolio.percentage_return - buyhold_return):+.2%}")
+                
+        except Exception as e:
+            price_monitor_logger.setLevel(original_level)
+            logger.warning(f"Could not calculate buy-and-hold comparison: {e}")
     
     lines.append("")
     
@@ -602,7 +631,7 @@ def main() -> None:
                 logger.info(f"Running backtest from {start_date} to {end_date}")
                 result = strategy_system.run_backtest(start_date, end_date)
                 
-                formatted_result = format_backtest_result(result, config)
+                formatted_result = format_backtest_result(result, config, price_monitor)
                 print(formatted_result)
                 
             except argparse.ArgumentTypeError as e:

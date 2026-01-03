@@ -34,7 +34,7 @@ graph TB
 
 ## Components and Interfaces
 
-### Configuration Manager
+### Configuration Managerv
 **Purpose**: Load and validate YAML configuration files
 
 **Key Methods:**
@@ -164,6 +164,12 @@ class BacktestResult:
 - Missing required fields: Use defaults with warnings
 - Out-of-range values: Validate using Pydantic and reject invalid configs
 
+**28-Day Constraint Implementation:**
+- Investment on Day 0 (e.g., Wednesday) blocks investments on Days 1-27
+- Investment allowed again on Day 28 (next Wednesday, 4 weeks later)
+- This creates a same-weekday investment pattern while maintaining proper spacing
+- Implementation uses `investment.date > cutoff_date` where `cutoff_date = check_date - timedelta(days=28)`
+
 **File System Errors:**
 - Missing investment history: Start with empty history
 - Corrupted investment file: Backup corrupted file and start fresh
@@ -186,12 +192,12 @@ class BacktestResult:
 **Validates: Requirements 3.1, 3.2, 3.3, 3.4**
 
 ### Property 4: Investment Decision Logic Correctness
-*For any* trading day evaluation, an investment should be executed if and only if yesterday's closing price is <= trigger price AND no investment exists within the past 28 calendar days, with each day evaluated independently.
+*For any* trading day evaluation, an investment should be executed if and only if yesterday's closing price is <= trigger price AND no investment exists within the past 27 calendar days (allowing same weekday pattern with 28-day spacing), with each day evaluated independently.
 **Validates: Requirements 4.1, 4.2, 4.3, 4.6**
 
 ### Property 5: Investment Constraint Enforcement
-*For any* sequence of investment attempts over time, the system should never allow two investments within 28 calendar days of each other, maintaining this as an invariant across all operations and using calendar days (not trading days).
-**Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5**
+*For any* sequence of investment attempts over time, the system should never allow two investments within 27 calendar days of each other (allowing investments exactly 28 days apart for same weekday pattern), maintaining this as an invariant across all operations and using calendar days (not trading days).
+**Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5, 5.6**
 
 ### Property 6: Investment Execution and Recording Accuracy
 *For any* executed investment, the system should use the current day's closing price, invest exactly the monthly_dca_amount, and accurately record the date, price, amount, and calculated shares (amount/price).

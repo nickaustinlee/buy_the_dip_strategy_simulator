@@ -277,25 +277,79 @@ class StrategySystem:
         investments_blocked_by_constraint = 0
         
         try:
+            # Fetch all price data upfront for better performance
+            logger.info(f"Fetching price data for {self.config.ticker}...")
+            data_start_date = start_date - timedelta(days=self.config.rolling_window_days + 30)
+            all_prices = self.price_monitor.get_closing_prices(self.config.ticker, data_start_date, end_date)
+            
+            if all_prices.empty:
+                raise ValueError(f"No price data available for {self.config.ticker} from {data_start_date} to {end_date}")
+            
+            logger.info(f"Fetched {len(all_prices)} price records, running backtest...")
+            
             # Generate business days in the range
             current_date = start_date
             while current_date <= end_date:
                 # Skip weekends (simplified - real implementation might use trading calendar)
                 if current_date.weekday() < 5:  # Monday = 0, Friday = 4
                     try:
-                        result = self.evaluate_trading_day(current_date)
+                        # Check if we have price data for this date
+                        if current_date not in all_prices.index:
+                            # Skip silently - likely a holiday
+                            current_date += timedelta(days=1)
+                            continue
+                        
+                        # Get yesterday's price (last available price before current_date)
+                        yesterday_date = current_date - timedelta(days=1)
+                        available_dates = [d for d in all_prices.index if d <= yesterday_date]
+                        
+                        if not available_dates:
+                            current_date += timedelta(days=1)
+                            continue
+                        
+                        yesterday_actual_date = max(available_dates)
+                        yesterday_price = float(all_prices[yesterday_actual_date])
+                        current_closing_price = float(all_prices[current_date])
+                        
+                        # Calculate trigger price using historical prices
+                        historical_prices = all_prices[all_prices.index <= yesterday_actual_date]
+                        
+                        if len(historical_prices) < self.config.rolling_window_days:
+                            # Not enough data yet
+                            current_date += timedelta(days=1)
+                            continue
+                        
+                        trigger_price = self.calculate_trigger_price(
+                            historical_prices, 
+                            self.config.rolling_window_days, 
+                            self.config.percentage_trigger
+                        )
+                        
+                        # Check if trigger condition is met
+                        trigger_met = yesterday_price <= trigger_price
+                        
+                        # Check 28-day constraint
+                        recent_investment_exists = self.investment_tracker.has_recent_investment(current_date, days=28)
+                        
+                        # Count evaluation
                         total_evaluations += 1
                         
-                        if result.trigger_met:
+                        if trigger_met:
                             trigger_conditions_met += 1
                             
-                            if result.investment_executed:
+                            if not recent_investment_exists:
+                                # Execute investment
+                                self.execute_investment(
+                                    current_date, 
+                                    current_closing_price, 
+                                    self.config.monthly_dca_amount
+                                )
                                 investments_executed += 1
-                            elif result.recent_investment_exists:
+                            else:
                                 investments_blocked_by_constraint += 1
                                 
-                    except ValueError as e:
-                        # Skip days with no data (weekends, holidays, etc.)
+                    except Exception as e:
+                        # Skip days with errors
                         logger.debug(f"Skipping {current_date}: {e}")
                 
                 current_date += timedelta(days=1)
@@ -305,14 +359,11 @@ class StrategySystem:
             
             if all_investments:
                 # Get final price for portfolio calculation
-                final_price = self.price_monitor.get_closing_prices(
-                    self.config.ticker, end_date, end_date
-                )
-                if not final_price.empty:
-                    current_price = float(final_price.iloc[-1])
+                if end_date in all_prices.index:
+                    current_price = float(all_prices[end_date])
                 else:
-                    # Fallback to latest available price
-                    current_price = self.price_monitor.get_current_price(self.config.ticker)
+                    # Use last available price
+                    current_price = float(all_prices.iloc[-1])
                 
                 final_portfolio = self.investment_tracker.calculate_portfolio_metrics(current_price)
             else:
