@@ -25,6 +25,7 @@ class PriceMonitor:
         self._cache: Dict[str, pd.DataFrame] = {}
         self._cache_timestamps: Dict[str, datetime] = {}
         self._yf = None
+        self._market_calendar = None
         
         # API call tracking
         self._api_calls_made = 0
@@ -38,94 +39,32 @@ class PriceMonitor:
         self._cache_dir.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Price cache directory: {self._cache_dir}")
     
-    def _is_likely_non_trading_day(self, check_date: date) -> bool:
+    def _get_market_calendar(self):
+        """Lazy load market calendar for NYSE."""
+        if self._market_calendar is None:
+            import pandas_market_calendars as mcal
+            self._market_calendar = mcal.get_calendar('NYSE')
+        return self._market_calendar
+    
+    def _is_trading_day(self, check_date: date) -> bool:
         """
-        Check if a date is likely a non-trading day (weekend or common holiday).
+        Check if a date is a trading day using NYSE market calendar.
         
         Args:
             check_date: Date to check
             
         Returns:
-            True if likely a non-trading day
+            True if it's a trading day
         """
-        # Check if it's a weekend
-        if check_date.weekday() >= 5:  # Saturday = 5, Sunday = 6
-            return True
-        
-        # Check for common US market holidays
-        year = check_date.year
-        month = check_date.month
-        day = check_date.day
-        weekday = check_date.weekday()  # Monday = 0, Sunday = 6
-        
-        # New Year's Day (or observed)
-        if month == 1 and day == 1:
-            return True
-        # New Year's observed on Friday if falls on Saturday
-        if month == 12 and day == 31 and weekday == 4:  # Friday
-            return True
-        # New Year's observed on Monday if falls on Sunday
-        if month == 1 and day == 2 and weekday == 0:  # Monday
-            return True
-        
-        # Martin Luther King Jr. Day (3rd Monday in January)
-        if month == 1 and weekday == 0 and 15 <= day <= 21:
-            return True
-        
-        # Presidents' Day (3rd Monday in February)
-        if month == 2 and weekday == 0 and 15 <= day <= 21:
-            return True
-        
-        # Good Friday (Friday before Easter - approximate check for common dates)
-        # This is a simplified check for common Good Friday dates
-        if month == 3 and weekday == 4 and 20 <= day <= 26:
-            return True
-        if month == 4 and weekday == 4 and 10 <= day <= 23:
-            return True
-        
-        # Memorial Day (last Monday in May)
-        if month == 5 and weekday == 0 and day >= 25:
-            return True
-        
-        # Juneteenth (June 19, or observed)
-        if month == 6 and day == 19:
-            return True
-        # Juneteenth observed on Friday if falls on Saturday
-        if month == 6 and day == 18 and weekday == 4:
-            return True
-        # Juneteenth observed on Monday if falls on Sunday
-        if month == 6 and day == 20 and weekday == 0:
-            return True
-        
-        # Independence Day (July 4, or observed)
-        if month == 7 and day == 4:
-            return True
-        # July 4th observed on Friday if falls on Saturday
-        if month == 7 and day == 3 and weekday == 4:
-            return True
-        # July 4th observed on Monday if falls on Sunday
-        if month == 7 and day == 5 and weekday == 0:
-            return True
-        
-        # Labor Day (1st Monday in September)
-        if month == 9 and weekday == 0 and day <= 7:
-            return True
-        
-        # Thanksgiving (4th Thursday in November)
-        if month == 11 and weekday == 3 and 22 <= day <= 28:
-            return True
-        
-        # Christmas Day (December 25, or observed)
-        if month == 12 and day == 25:
-            return True
-        # Christmas observed on Friday if falls on Saturday
-        if month == 12 and day == 24 and weekday == 4:
-            return True
-        # Christmas observed on Monday if falls on Sunday
-        if month == 12 and day == 26 and weekday == 0:
-            return True
-        
-        return False
+        try:
+            calendar = self._get_market_calendar()
+            # Get valid trading days for the date
+            schedule = calendar.valid_days(start_date=check_date, end_date=check_date)
+            return len(schedule) > 0
+        except Exception as e:
+            # Fallback to simple weekend check if calendar fails
+            logger.debug(f"Market calendar check failed for {check_date}: {e}")
+            return check_date.weekday() < 5
     
     def _log_no_data_reason(self, ticker: str, start_date: date, end_date: date) -> None:
         """
@@ -146,7 +85,7 @@ class PriceMonitor:
         all_non_trading = True
         
         while current_date <= end_date:
-            if not self._is_likely_non_trading_day(current_date):
+            if self._is_trading_day(current_date):
                 all_non_trading = False
                 break
             current_date += timedelta(days=1)
@@ -154,12 +93,9 @@ class PriceMonitor:
         if all_non_trading:
             if start_date == end_date:
                 day_name = start_date.strftime("%A")
-                if start_date.weekday() >= 5:
-                    logger.debug(f"No data for {ticker} on {start_date} ({day_name}) - markets closed on weekends")
-                else:
-                    logger.debug(f"No data for {ticker} on {start_date} ({day_name}) - likely a market holiday")
+                logger.debug(f"No data for {ticker} on {start_date} ({day_name}) - not a trading day")
             else:
-                logger.debug(f"No data for {ticker} from {start_date} to {end_date} - range contains only weekends/holidays")
+                logger.debug(f"No data for {ticker} from {start_date} to {end_date} - range contains only non-trading days")
         else:
             # Some trading days in range, but still no data - this might be more concerning
             logger.warning(f"No price data available for {ticker} from {start_date} to {end_date} - "
@@ -244,9 +180,16 @@ class PriceMonitor:
         # Convert cached dates to a set for fast lookup
         cached_dates = set(cached_data['Date'])
         
-        # Generate all business days in the requested range
-        date_range = pd.bdate_range(start=start_date, end=end_date)
-        requested_dates = set(date_range.date)
+        # Use market calendar to get actual trading days instead of business days
+        try:
+            calendar = self._get_market_calendar()
+            schedule = calendar.valid_days(start_date=start_date, end_date=end_date)
+            requested_dates = set(pd.to_datetime(schedule).date)
+        except Exception as e:
+            # Fallback to business days if calendar fails
+            logger.debug(f"Market calendar failed, using business days: {e}")
+            date_range = pd.bdate_range(start=start_date, end=end_date)
+            requested_dates = set(date_range.date)
         
         # Find missing dates
         missing_dates = requested_dates - cached_dates
@@ -254,15 +197,8 @@ class PriceMonitor:
         if not missing_dates:
             return []  # All data is cached
         
-        # Filter out likely non-trading days from missing dates to reduce noise
-        missing_dates_filtered = [d for d in missing_dates if not self._is_likely_non_trading_day(d)]
-        
-        if not missing_dates_filtered:
-            # All missing dates are likely holidays/weekends - still return them but they won't generate warnings
-            return []
-        
         # Convert missing dates to contiguous ranges
-        missing_dates_sorted = sorted(missing_dates_filtered)
+        missing_dates_sorted = sorted(missing_dates)
         ranges = []
         range_start = missing_dates_sorted[0]
         range_end = missing_dates_sorted[0]
