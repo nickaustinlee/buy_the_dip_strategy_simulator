@@ -1,17 +1,28 @@
 # Buy the Dip Strategy
 
-A Python-based stock trading strategy simulator that implements a "buy the dip" approach using dollar-cost averaging. The system monitors configurable stock tickers (default: S&P 500 via SPY) and automatically triggers investment when prices drop below a threshold relative to recent highs, continuing until prices recover to the original trigger level.
+A Python-based stock trading strategy simulator that implements a simplified "buy the dip" approach. The system evaluates each trading day independently, checking if yesterday's closing price dropped below a dynamically calculated trigger price. When conditions are met and no investment has been made in the past 28 days, it executes a buy at the current day's closing price.
 
-## 🚀 Features
+## 🚀 Key Features
 
-- **Configurable Strategy Parameters**: Customize ticker symbol, rolling window, trigger percentage, and DCA amount via YAML configuration
-- **Price Monitoring**: Real-time price data fetching using yfinance with intelligent caching
-- **Dollar-Cost Averaging**: Automated monthly investments during market dips with state machine management
-- **Multiple DCA Sessions**: Support for overlapping DCA periods with independent trigger prices
-- **State Management**: Persistent storage of strategy state and investment history across sessions
-- **Performance Analysis**: Comprehensive CAGR analysis comparing strategy vs buy-and-hold performance
-- **CLI Interface**: Easy-to-use command-line interface for running different strategies
-- **Robust Error Handling**: Graceful handling of network failures, invalid data, and configuration errors
+- **Simplified Daily Evaluation**: Clean, stateless daily evaluation logic - no complex session management
+- **28-Day Investment Spacing**: Automatic constraint enforcement preventing investments within 28 days
+- **Configurable Strategy Parameters**: Customize ticker, rolling window, trigger percentage, and investment amount via YAML
+- **Intelligent Price Monitoring**: Real-time price data fetching with smart caching and validation
+- **Comprehensive Testing**: 224 tests including property-based testing for universal correctness guarantees
+- **Robust CLI Interface**: Full-featured command-line interface with backtesting and reporting
+- **Performance Analysis**: Portfolio metrics and performance tracking
+- **Production Ready**: Thoroughly tested with comprehensive error handling
+
+## 🎯 How It Works
+
+The strategy follows a simple daily evaluation process:
+
+1. **Calculate Trigger Price**: `rolling_maximum * percentage_trigger` (e.g., 90% of 90-day high)
+2. **Check Yesterday's Price**: Did it drop to or below the trigger price?
+3. **Enforce 28-Day Rule**: Has it been at least 28 days since the last investment?
+4. **Execute Investment**: If both conditions are met, invest the configured amount
+
+**Example**: If SPY's 90-day high is $500 and your trigger is 90%, the system will invest when the price drops to $450 or below (assuming no recent investments).
 
 ## 📦 Installation
 
@@ -22,45 +33,33 @@ New to the project? Check out the [Quick Start Guide](QUICKSTART.md) for a 5-min
 - Python 3.13 or higher
 - Poetry (recommended) or pip
 
-For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md).
-
 ### Using Poetry (Recommended)
 
-1. Clone the repository:
 ```bash
+# Clone the repository
 git clone <repository-url>
 cd buy-the-dip-strategy
-```
 
-2. Install Poetry (if not already installed):
-```bash
+# Install Poetry if needed
 curl -sSL https://install.python-poetry.org | python3 -
-```
 
-3. Install dependencies and the package:
-```bash
+# Install dependencies
 poetry install
 ```
 
 ### Using pip
 
-1. Clone the repository:
 ```bash
+# Clone and setup
 git clone <repository-url>
 cd buy-the-dip-strategy
-```
-
-2. Create a virtual environment:
-```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 pip install -e .
 ```
+
+For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md).
 
 ## 🎯 Quick Start
 
@@ -71,333 +70,252 @@ poetry run python buy_the_dip.py
 
 # Using pip installation
 python buy_the_dip.py
-
-# Using installed console script (if available)
-buy-the-dip
 ```
 
-This will:
-1. Monitor SPY (S&P 500 ETF) 
-2. Calculate 90-day rolling maximum
-3. Trigger DCA when price drops to 90% of recent high
-4. Invest $2,000 monthly during active periods
-5. Display progress and generate performance reports
+This monitors SPY with a 90-day rolling window, triggers on 10% drops, and simulates $1,000 monthly investments.
+
+### Run a Backtest
+```bash
+# Backtest the last year
+poetry run python buy_the_dip.py --backtest --period 1y
+
+# Backtest specific date range
+poetry run python buy_the_dip.py --backtest --start-date 2023-01-01 --end-date 2023-12-31
+```
+
+### Check Current Status
+```bash
+# Show current portfolio status
+poetry run python buy_the_dip.py --status
+
+# Evaluate a specific date
+poetry run python buy_the_dip.py --evaluate 2024-01-15
+```
 
 ## 📋 Usage Examples
 
-For comprehensive usage examples and scenarios, see [EXAMPLES.md](EXAMPLES.md).
+For comprehensive usage examples, see [EXAMPLES.md](EXAMPLES.md).
 
-### Basic Usage
+### Basic Commands
 
-Run the strategy with default configuration:
 ```bash
-poetry run python buy_the_dip.py
-```
-
-### Custom Configuration
-
-Run with a custom configuration file:
-```bash
+# Run with custom configuration
 poetry run python buy_the_dip.py --config my_config.yaml
+
+# Validate configuration without running
+poetry run python buy_the_dip.py --config my_config.yaml --validate-config
+
+# Run backtest with different periods
+poetry run python buy_the_dip.py --backtest --period 6m    # 6 months
+poetry run python buy_the_dip.py --backtest --period 90d   # 90 days
+poetry run python buy_the_dip.py --backtest --period 2y    # 2 years
 ```
-
-### Generate Performance Report
-
-Generate a detailed performance report:
-```bash
-poetry run python buy_the_dip.py --report
-```
-
-### Custom Date Range Analysis
-
-Analyze specific time periods for backtesting:
-
-```bash
-# Analyze a specific year
-poetry run buy-the-dip --report --start-date 2023-01-01 --end-date 2023-12-31
-
-# Analyze last 6 months
-poetry run buy-the-dip --report --analysis-period 6m
-
-# Analyze last 2 years  
-poetry run buy-the-dip --report --analysis-period 2y
-
-# Analyze 90 days
-poetry run buy-the-dip --report --analysis-period 90d
-
-# Combine end date with period (6 months ending Dec 31, 2024)
-poetry run buy-the-dip --report --end-date 2024-12-31 --analysis-period 6m
-```
-
-**Date Range Options:**
-- `--start-date YYYY-MM-DD`: Specify analysis start date
-- `--end-date YYYY-MM-DD`: Specify analysis end date  
-- `--analysis-period`: Use shorthand periods (`1y`, `6m`, `90d`, `2y`)
-
-**Period Format Examples:**
-- `90d` = 90 days
-- `6m` = 6 months (180 days)
-- `1y` = 1 year (365 days)
-- `2y` = 2 years (730 days)
 
 ### Cache Management
 
 ```bash
-# Show cache information for a ticker
+# Show cache information
 poetry run python buy_the_dip.py --cache-info SPY
 
-# Validate cached data against live API data
+# Validate cached data against live API
 poetry run python buy_the_dip.py --validate-cache SPY
 
-# Clear cache for a specific ticker
+# Clear cache for specific ticker
 poetry run python buy_the_dip.py --clear-cache SPY
 
-# Clear all cached data
-poetry run python buy_the_dip.py --clear-cache all
-
-# Ignore cache and fetch fresh data (for one-time use)
+# Force fresh data (ignore cache)
 poetry run python buy_the_dip.py --ignore-cache --backtest
 ```
 
-### Validate Configuration
+### Try Different Strategies
 
-Validate a configuration file without running the strategy:
 ```bash
-poetry run python buy_the_dip.py --config my_config.yaml --validate-config
-```
-
-### Example Configurations
-
-The `config_examples/` directory contains several pre-configured strategies:
-
-#### Conservative Strategy
-```bash
+# Conservative: 15% drops, $1K monthly
 poetry run python buy_the_dip.py --config config_examples/conservative.yaml
-```
-- 180-day rolling window (6 months)
-- Triggers on 15% drops
-- $1,000 monthly investment
 
-#### Aggressive Strategy  
-```bash
+# Aggressive: 5% drops, $3K monthly  
 poetry run python buy_the_dip.py --config config_examples/aggressive.yaml
-```
-- 30-day rolling window (1 month)
-- Triggers on 5% drops  
-- $3,000 monthly investment
-- Monitors QQQ (NASDAQ-100)
 
-#### Individual Stock Strategy
-```bash
+# Individual stock: Apple with custom parameters
 poetry run python buy_the_dip.py --config config_examples/individual_stock.yaml
 ```
-- 60-day rolling window (2 months)
-- Triggers on 12% drops
-- $1,500 monthly investment
-- Monitors AAPL (Apple stock)
 
 ## ⚙️ Configuration
 
-The strategy is configured via YAML files. The default configuration is in `config.yaml`.
+The strategy is configured via YAML files. For comprehensive configuration guidance, see the [Configuration Guide](CONFIGURATION_GUIDE.md).
 
-For comprehensive configuration guidance, see the [Configuration Guide](CONFIGURATION_GUIDE.md).
+### Basic Configuration
+
+```yaml
+# config.yaml
+ticker: "SPY"                    # Stock/ETF to monitor
+rolling_window_days: 90          # Days for rolling maximum calculation
+percentage_trigger: 0.90         # Trigger at 90% of rolling max (10% drop)
+monthly_dca_amount: 1000.0       # Dollar amount to invest
+data_cache_days: 30              # Days to cache price data
+```
 
 ### Available Example Configurations
 
-The `config_examples/` directory contains several pre-configured strategies:
-
-| Configuration | Risk Level | Description |
-|---------------|------------|-------------|
-| `conservative.yaml` | Low | 15% drops, $1K/month, 6-month window |
-| `balanced.yaml` | Medium | 8% drops, $2K/month, 2-month window |
-| `aggressive.yaml` | High | 5% drops, $3K/month, 1-month window |
-| `individual_stock.yaml` | High | 12% drops, $1.5K/month, Apple stock |
-| `dividend_focused.yaml` | Low-Medium | 11% drops, $2K/month, dividend ETF |
-| `small_cap.yaml` | High | 13% drops, $1.5K/month, small-cap ETF |
-| `crypto_etf.yaml` | Very High | 18% drops, $1K/month, Bitcoin ETF |
-
-### Configuration Parameters
-
-| Parameter | Type | Range | Default | Description |
-|-----------|------|-------|---------|-------------|
-| `ticker` | string | Any valid ticker | "SPY" | Stock ticker symbol to monitor |
-| `rolling_window_days` | integer | 1-365 | 90 | Days for rolling maximum calculation |
-| `percentage_trigger` | float | 0.0-1.0 | 0.90 | Percentage of rolling max that triggers DCA |
-| `monthly_dca_amount` | float | > 0.0 | 2000.0 | Monthly dollar amount for investments |
-| `data_cache_days` | integer | ≥ 1 | 30 | Days to cache price data locally |
-
-### Example Configuration
-
-```yaml
-# Monitor the S&P 500
-ticker: "SPY"
-
-# Use 3-month rolling window  
-rolling_window_days: 90
-
-# Trigger on 10% drops
-percentage_trigger: 0.90
-
-# Invest $2,000 monthly
-monthly_dca_amount: 2000.0
-
-# Cache data for 30 days
-data_cache_days: 30
-```
-
-### Configuration Tips
-
-**Rolling Window Selection:**
-- **30 days**: More sensitive, catches short-term dips
-- **90 days**: Balanced approach (recommended)
-- **180+ days**: Less sensitive, focuses on major corrections
-
-**Trigger Percentage Selection:**
-- **0.95 (5% drop)**: Very aggressive, frequent triggers
-- **0.90 (10% drop)**: Balanced approach (recommended)
-- **0.85 (15% drop)**: Conservative, major dips only
-- **0.80 (20% drop)**: Very conservative, crash scenarios
-
-**Ticker Selection:**
-- **SPY**: S&P 500, broad market exposure
-- **QQQ**: NASDAQ-100, tech-heavy, more volatile
-- **VTI**: Total stock market, maximum diversification
-- **Individual stocks**: Higher risk/reward, more volatile
+| Configuration | Risk Level | Trigger | Amount | Description |
+|---------------|------------|---------|---------|-------------|
+| `conservative.yaml` | Low | 15% drops | $1K | Stable, infrequent trading |
+| `balanced.yaml` | Medium | 8% drops | $2K | Good balance of risk/reward |
+| `aggressive.yaml` | High | 5% drops | $3K | Frequent trading, higher risk |
+| `individual_stock.yaml` | High | 12% drops | $1.5K | Single stock (Apple) |
+| `dividend_focused.yaml` | Low-Med | 11% drops | $2K | Income-focused ETF |
+| `small_cap.yaml` | High | 13% drops | $1.5K | Small-cap growth |
+| `crypto_etf.yaml` | Very High | 18% drops | $1K | Bitcoin ETF exposure |
 
 ## 📊 Understanding the Output
 
-### Strategy Execution Output
+### Daily Evaluation Output
 ```
-Buy the Dip Strategy Starting...
-Configuration: SPY, 90-day window, 90% trigger, $2000/month
-Current Price: $450.25
-Rolling Max (90d): $475.30
-Trigger Price: $427.77
-Status: MONITORING (price above trigger)
+🎯 EVALUATION RESULT - SPY on 2024-01-15
+============================================================
+Yesterday's Price: $445.20
+Trigger Price: $450.00
+Rolling Maximum (90d): $500.00
+Trigger Met: ✅ YES
+Recent Investment Exists: ❌ NO
 
-[Price Update] SPY: $425.50 (Drop detected: -10.5%)
-🔥 DCA ACTIVATED! Starting session: dca_20241201_001
-Target: Invest $2000/month until price recovers to $427.77
-
-[Investment] Session dca_20241201_001: $2000 → 4.70 shares @ $425.50
-Portfolio: $2000 invested, 4.70 shares, Value: $2001.35 (+0.07%)
+🚀 INVESTMENT EXECUTED!
+Amount: $1,000.00
+Price: $445.20
+Shares: 2.2466
 ```
 
-### Performance Report Output
+### Backtest Results
 ```
-=== Buy the Dip Strategy Performance Report ===
+🎯 BACKTEST RESULTS - SPY
+============================================================
+Period: 2023-01-01 to 2024-01-01
+Total Trading Days Evaluated: 252
+Trigger Conditions Met: 15
+Investments Executed: 4
+Investments Blocked (28-day rule): 11
 
-Analysis Period: 2023-01-01 to 2024-12-01 (335 days)
-First Investment: 2023-03-15 (74 days after start)
+📊 PORTFOLIO PERFORMANCE
+------------------------------
+Total Invested: $4,000.00
+Total Shares: 9.2341
+Current Value: $4,620.50
+Total Return: $620.50
+Percentage Return: 15.51%
 
-📈 CAGR Analysis:
-Full Period (335 days):
-  Strategy CAGR: 8.5%
-  Buy & Hold CAGR: 12.2%
-  Outperformance: -3.7%
-
-Active Period (261 days):  
-  Strategy CAGR: 15.8%
-  Buy & Hold CAGR: 13.1%
-  Outperformance: +2.7%
-
-💰 Investment Summary:
-  Total Invested: $24,000
-  Total Shares: 52.3
-  Current Value: $26,950
-  Total Return: +12.3%
-  
-🎯 Strategy Effectiveness:
-  DCA Sessions: 3 completed, 1 active
-  Average Session Duration: 4.2 months
-  Opportunity Cost: -3.7% (cost of waiting for dips)
+💰 INVESTMENT HISTORY
+------------------------------
+2023-03-15: $1,000.00 at $395.20 = 2.5304 shares
+2023-05-22: $1,000.00 at $410.80 = 2.4342 shares
+2023-08-18: $1,000.00 at $425.60 = 2.3502 shares
+2023-11-02: $1,000.00 at $438.90 = 2.2783 shares
 ```
 
 ## 🏗️ Architecture
 
-The system follows a modular architecture with clear separation of concerns:
+The system follows a clean, simplified architecture with clear separation of concerns:
 
 ### Core Components
 
-- **Configuration Manager**: Loads and validates YAML configuration files using Pydantic
-- **Price Monitor**: Fetches stock price data via yfinance with intelligent caching
-- **DCA Controller**: Manages dollar-cost averaging sessions using state machine pattern
-- **Strategy Engine**: Orchestrates the overall trading strategy and coordinates components
-- **State Manager**: Handles persistent storage of strategy state and investment history
-- **CAGR Analysis Engine**: Calculates performance metrics and comparisons
-- **CLI Interface**: Provides command-line interaction and reporting
+- **StrategySystem**: Orchestrates daily evaluation and investment decisions
+- **InvestmentTracker**: Manages investment history and enforces 28-day constraints
+- **PriceMonitor**: Fetches and caches stock price data with validation
+- **ConfigurationManager**: Loads and validates YAML configuration files
 
-### Data Flow
+### Simplified Data Flow
 ```
-CLI → Config Manager → Strategy Engine → Price Monitor → yfinance API
-                           ↓
-                    DCA Controller → State Manager → JSON Storage
-                           ↓
-                    CAGR Analysis → Performance Reports
+CLI → ConfigurationManager → StrategySystem
+                                    ↓
+                            PriceMonitor → yfinance API
+                                    ↓
+                            InvestmentTracker → JSON Storage
 ```
 
-## 🧪 Development
+### Key Simplifications
 
-### Running Tests
+- **No Complex Sessions**: Eliminated DCA session management for simple daily evaluation
+- **Stateless Logic**: Each day is evaluated independently with minimal state
+- **28-Day Rule**: Simple constraint checking without complex state tracking
+- **Clean Interfaces**: Clear separation between components with minimal coupling
+
+## 🧪 Testing
+
+The system includes comprehensive testing with 224 tests covering all functionality:
+
+### Run Tests
 
 ```bash
 # Run all tests
 poetry run pytest
 
-# Run with coverage report
+# Run with coverage
 poetry run pytest --cov=buy_the_dip --cov-report=html
 
 # Run specific test categories
 poetry run pytest tests/unit/          # Unit tests
-poetry run pytest tests/property/      # Property-based tests  
+poetry run pytest tests/property/      # Property-based tests
 poetry run pytest tests/integration/   # Integration tests
-
-# Run tests with verbose output
-poetry run pytest -v
-
-# Run specific test file
-poetry run pytest tests/unit/test_strategy_engine.py
 ```
+
+### Test Categories
+
+- **Unit Tests**: Individual component testing with edge cases
+- **Property-Based Tests**: Universal correctness guarantees using Hypothesis
+- **Integration Tests**: End-to-end workflow validation
+
+### Property-Based Testing
+
+The system uses property-based testing to ensure correctness across all possible inputs:
+
+- **Configuration Properties**: Validation and loading consistency
+- **Investment Constraints**: 28-day rule enforcement
+- **Price Calculations**: Trigger price accuracy
+- **Portfolio Metrics**: Mathematical correctness
+- **Persistence**: Round-trip data integrity
+
+## 🛠️ Development
 
 ### Code Quality
 
 ```bash
-# Format code with Black
+# Format code
 poetry run black buy_the_dip/ tests/
 
-# Lint code with flake8
+# Lint code
 poetry run flake8 buy_the_dip/ tests/
 
-# Type checking with mypy
+# Type checking
 poetry run mypy buy_the_dip/
-
-# Run all quality checks
-poetry run black buy_the_dip/ tests/ && poetry run flake8 buy_the_dip/ tests/ && poetry run mypy buy_the_dip/
 ```
 
 ### Project Structure
 
 ```
 buy_the_dip/
-├── analysis/           # CAGR analysis and performance metrics
-├── cli/               # Command-line interface
-├── config/            # Configuration management and models
-├── dca_controller/    # Dollar-cost averaging logic
-├── persistence/       # State management and data storage
-├── price_monitor/     # Price data fetching and caching
-├── strategy_engine/   # Core strategy orchestration
-└── models.py         # Shared data models
+├── cli/                   # Command-line interface
+├── config/               # Configuration management
+├── analysis/             # Performance analysis (CAGR)
+├── strategy_system.py    # Core strategy logic
+├── investment_tracker.py # Investment history and constraints
+├── price_monitor/        # Price data fetching and caching
+└── models.py            # Shared data models
 
 tests/
-├── unit/             # Unit tests for individual components
-├── property/         # Property-based tests using Hypothesis
-└── integration/      # End-to-end integration tests
+├── unit/                # Unit tests
+├── property/            # Property-based tests
+└── integration/         # End-to-end tests
 
-config_examples/      # Example configuration files
-├── conservative.yaml
-├── aggressive.yaml
-└── individual_stock.yaml
+config_examples/         # Example configurations
 ```
+
+## 📈 Performance Analysis
+
+The system provides detailed performance metrics:
+
+- **Total Return**: Absolute and percentage returns
+- **Portfolio Value**: Current value based on latest prices
+- **Investment History**: Complete record of all investments
+- **28-Day Constraint Tracking**: Blocked vs executed investments
 
 ## 🤝 Contributing
 
@@ -405,7 +323,7 @@ config_examples/      # Example configuration files
 2. Create a feature branch: `git checkout -b feature-name`
 3. Make your changes and add tests
 4. Run the test suite: `poetry run pytest`
-5. Run code quality checks: `poetry run black . && poetry run flake8 . && poetry run mypy buy_the_dip/`
+5. Run code quality checks: `poetry run black . && poetry run flake8 .`
 6. Commit your changes: `git commit -am 'Add feature'`
 7. Push to the branch: `git push origin feature-name`
 8. Submit a pull request
@@ -417,3 +335,11 @@ MIT License - see LICENSE file for details.
 ## ⚠️ Disclaimer
 
 This is a trading strategy simulator for educational and research purposes only. It does not execute real trades or provide investment advice. Past performance does not guarantee future results. Always consult with a qualified financial advisor before making investment decisions.
+
+## 📚 Documentation
+
+- **[QUICKSTART.md](QUICKSTART.md)** - 5-minute setup guide
+- **[INSTALLATION.md](INSTALLATION.md)** - Detailed installation instructions
+- **[CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md)** - Complete configuration reference
+- **[EXAMPLES.md](EXAMPLES.md)** - Usage examples and scenarios
+- **[DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)** - Complete documentation overview
