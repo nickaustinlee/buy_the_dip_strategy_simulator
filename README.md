@@ -4,6 +4,7 @@ A Python-based stock trading strategy simulator that implements a simplified "bu
 
 ## 🚀 Key Features
 
+- **Automated Buy Signal Alerts**: Get macOS notifications when buy signals are detected - perfect for daily cron jobs
 - **Multi-Ticker Buy Signal Check**: Instantly compare buy signals across multiple tickers to prioritize investments
 - **Simplified Daily Evaluation**: Clean, stateless daily evaluation logic - no complex session management
 - **28-Day Investment Spacing**: Automatic constraint enforcement preventing investments within 28 days
@@ -129,11 +130,83 @@ Summary: ✅ 1 of 5 tickers have buy signals
 
 This helps you prioritize which ticker to invest in when you have capital available. The check ignores the 28-day constraint and simply tells you which tickers are currently at attractive entry points based on your strategy parameters.
 
+### Automated Buy Signal Alerts (macOS)
+
+**Get notified automatically when buy signals are detected:**
+
+```bash
+# Add --notify flag to get macOS notifications
+poetry run buy-the-dip --tickers QQQ SPY AAPL VTI BND \
+  --check \
+  --rolling-window 30 \
+  --trigger-pct 0.95 \
+  --notify
+```
+
+**Notification shows:**
+```
+Buy Signals Detected (1 of 5):
+
+✅ AAPL: $271.01 (trigger $271.88, -0.3%)
+```
+
+![macOS Desktop Alert Example](screenshots/osx_desktop_alert_example.png)
+
+**Set up daily automated alerts with cron:**
+
+1. **Create a check script** (`~/check_buy_signals.sh`):
+```bash
+#!/bin/bash
+cd /path/to/buy-the-dip
+/usr/local/bin/poetry run buy-the-dip \
+  --tickers QQQ SPY AAPL VTI BND \
+  --check \
+  --rolling-window 30 \
+  --trigger-pct 0.95 \
+  --notify
+```
+
+2. **Make it executable**:
+```bash
+chmod +x ~/check_buy_signals.sh
+```
+
+3. **Add to crontab** (runs weekdays at 5 PM after market close):
+```bash
+# Edit crontab
+crontab -e
+
+# Add this line (replace /path/to with your actual path):
+0 17 * * 1-5 /Users/yourusername/check_buy_signals.sh
+```
+
+4. **Test it manually**:
+```bash
+~/check_buy_signals.sh
+```
+
+**How it works:**
+- Runs automatically every weekday at 5 PM (after market close)
+- Checks all your tickers for buy signals
+- Sends macOS notification only when buy signals are detected
+- No terminal needs to be open - runs in background
+- Notification shows which tickers have signals with prices
+
+**Customize the schedule:**
+- `0 17 * * 1-5` = 5:00 PM, Monday-Friday
+- `30 16 * * 1-5` = 4:30 PM, Monday-Friday
+- `0 9 * * 1-5` = 9:00 AM, Monday-Friday
+
+**Note**: macOS notifications only work when your Mac is awake. Consider adjusting your Energy Saver settings or using `pmset` to wake your Mac for the cron job if needed.
+
 ### Single Ticker Check
 
 ```bash
 # Check if a single ticker has a buy signal today
 poetry run buy-the-dip --config config.yaml --check
+
+# With notifications
+poetry run buy-the-dip --config config.yaml --check --notify
 ```
 
 ### Basic Commands
@@ -222,7 +295,10 @@ The system maintains a **persistent portfolio** that accumulates investments acr
 
 **Daily Evaluation Mode**: Run the strategy on specific dates
 ```bash
-# Evaluate today (if conditions are met, an investment is made and saved)
+# Evaluate today (defaults to current date)
+poetry run python buy_the_dip.py --evaluate
+
+# Or explicitly specify today's date (macOS/Linux)
 poetry run python buy_the_dip.py --evaluate $(date +%Y-%m-%d)
 
 # Evaluate a historical date when there was likely a dip
@@ -231,9 +307,18 @@ poetry run python buy_the_dip.py --evaluate 2024-03-15
 
 **Automatic Mode**: Run the strategy regularly (e.g., daily cron job)
 ```bash
-# This would be run daily to check conditions and invest when appropriate
-poetry run python buy_the_dip.py --evaluate $(date +%Y-%m-%d)
+# Simple cron job - runs daily at 5 PM (after market close)
+# Add this to your crontab with: crontab -e
+0 17 * * 1-5 cd /path/to/buy-the-dip && poetry run python buy_the_dip.py --evaluate
+
+# Or with explicit date (same result)
+0 17 * * 1-5 cd /path/to/buy-the-dip && poetry run python buy_the_dip.py --evaluate $(date +%Y-%m-%d)
+
+# macOS: Use full path to poetry
+0 17 * * 1-5 cd /path/to/buy-the-dip && /usr/local/bin/poetry run python buy_the_dip.py --evaluate
 ```
+
+**Note**: The cron job runs Monday-Friday (1-5) at 5 PM, after market close. Adjust timing based on your timezone and when you want to check for dips.
 
 ### Portfolio Status
 

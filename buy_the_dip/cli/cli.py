@@ -5,6 +5,8 @@ Command-line interface implementation.
 import argparse
 import logging
 import sys
+import subprocess
+import platform
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional, Tuple
@@ -13,6 +15,74 @@ from ..config import ConfigurationManager
 from ..strategy_system import StrategySystem, BacktestResult
 from ..price_monitor import PriceMonitor
 from ..investment_tracker import InvestmentTracker
+
+
+def send_notification(title: str, message: str, sound: str = "Glass") -> bool:
+    """
+    Send a macOS notification using osascript.
+    
+    Args:
+        title: Notification title
+        message: Notification message
+        sound: Sound name (default: "Glass")
+        
+    Returns:
+        True if notification was sent successfully
+    """
+    if platform.system() != "Darwin":
+        logging.getLogger(__name__).warning("Notifications are only supported on macOS")
+        return False
+    
+    try:
+        script = f'display notification "{message}" with title "{title}" sound name "{sound}"'
+        subprocess.run(["osascript", "-e", script], check=True, capture_output=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        logging.getLogger(__name__).error(f"Failed to send notification: {e}")
+        return False
+    except FileNotFoundError:
+        logging.getLogger(__name__).error("osascript not found - notifications require macOS")
+        return False
+
+
+def save_results_and_notify(title: str, message: str, detailed_output: str) -> bool:
+    """
+    Save detailed results to a file and send notification with file location.
+    
+    Args:
+        title: Notification title
+        message: Short notification message
+        detailed_output: Full output to save to file
+        
+    Returns:
+        True if successful
+    """
+    try:
+        # Create results directory
+        results_dir = Path.home() / ".buy_the_dip" / "notifications"
+        results_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save to timestamped file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        results_file = results_dir / f"buy_signals_{timestamp}.txt"
+        
+        with open(results_file, 'w') as f:
+            f.write(detailed_output)
+        
+        # Send notification - keep message short
+        send_notification(title, message)
+        
+        # Log the file location
+        logging.getLogger(__name__).info(f"Results saved to: {results_file}")
+        
+        # Print to console so user can easily open it
+        print(f"\n📄 Detailed results saved to: {results_file}")
+        print(f"   Open with: open {results_file}")
+        
+        return True
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Failed to save results and notify: {e}")
+        return False
 
 
 def validate_cached_data(price_monitor: PriceMonitor, ticker: str, max_records: int = 50) -> dict:
@@ -510,7 +580,9 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--evaluate",
         type=str,
-        help="Evaluate a specific date (YYYY-MM-DD format)"
+        nargs="?",
+        const="today",
+        help="Evaluate a specific date (YYYY-MM-DD format). Defaults to today if no date provided."
     )
     
     parser.add_argument(
@@ -523,6 +595,12 @@ def create_parser() -> argparse.ArgumentParser:
         "--check",
         action="store_true",
         help="Check if today is a buying day according to the strategy (ignores 28-day constraint)"
+    )
+    
+    parser.add_argument(
+        "--notify",
+        action="store_true",
+        help="Send macOS notification when buy signals are detected (use with --check or --tickers)"
     )
     
     parser.add_argument(
@@ -690,6 +768,10 @@ def main() -> None:
                 logger.error("No tickers could be checked successfully")
                 sys.exit(1)
             
+            # Count buy signals
+            buy_signal_count = sum(1 for r in results if r['trigger_met'])
+            buy_signal_tickers = [r['ticker'] for r in results if r['trigger_met']]
+            
             # Log API stats before displaying results
             api_stats = price_monitor.get_api_stats()
             logger.info(f"Session total - API calls: {api_stats['api_calls_made']}, Cache hits: {api_stats['cache_hits']}")
@@ -697,6 +779,24 @@ def main() -> None:
             # Display results
             formatted_result = format_multi_ticker_check(results, today)
             print(formatted_result)
+            
+            # Send notification if requested and buy signals detected
+            if args.notify and buy_signal_count > 0:
+                # Create compact notification message with results
+                notification_lines = [f"Buy Signals Detected ({buy_signal_count} of {len(results)}):"]
+                notification_lines.append("")
+                
+                for result in results:
+                    if result['trigger_met']:
+                        ticker = result['ticker']
+                        price = result['yesterday_price']
+                        trigger = result['trigger_price']
+                        pct = ((price - trigger) / trigger) * 100
+                        notification_lines.append(f"✅ {ticker}: ${price:.2f} (trigger ${trigger:.2f}, {pct:+.1f}%)")
+                
+                notification_message = "\\n".join(notification_lines)
+                send_notification("Buy the Dip Alert", notification_message)
+                logger.info(f"Notification sent with {buy_signal_count} buy signals")
             
             return
         
@@ -821,11 +921,22 @@ def main() -> None:
         elif args.evaluate:
             # Evaluate specific date
             try:
-                eval_date = parse_date(args.evaluate)
+                # Default to today if no date provided
+                if args.evaluate == "today":
+                    eval_date = date.today()
+                else:
+                    eval_date = parse_date(args.evaluate)
+                
                 result = strategy_system.evaluate_trading_day(eval_date)
                 
                 formatted_result = format_evaluation_result(result, config)
                 print(formatted_result)
+                
+                # Send notification if investment was executed
+                if args.notify and result.investment_executed:
+                    message = f"Investment executed! ${result.investment.amount:.0f} in {config.ticker} at ${result.investment.price:.2f}"
+                    send_notification("Buy the Dip - Investment Executed", message)
+                    logger.info(f"Notification sent: {message}")
                 
             except argparse.ArgumentTypeError as e:
                 logger.error(f"Date format error: {e}")
@@ -898,6 +1009,12 @@ def main() -> None:
                     print("✅ BUY SIGNAL: Trigger condition is met!")
                     print(f"   Yesterday's price (${yesterday_price:.2f}) is at or below")
                     print(f"   the trigger price (${trigger_price:.2f})")
+                    
+                    # Send notification if requested
+                    if args.notify:
+                        message = f"{config.ticker} has a buy signal at ${yesterday_price:.2f}!"
+                        send_notification("Buy the Dip Alert", message)
+                        logger.info(f"Notification sent: {message}")
                 else:
                     print("❌ NO BUY SIGNAL: Trigger condition not met")
                     print(f"   Yesterday's price (${yesterday_price:.2f}) is above")
