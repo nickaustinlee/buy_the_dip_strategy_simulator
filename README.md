@@ -4,13 +4,14 @@ A Python-based stock trading strategy simulator that implements a simplified "bu
 
 ## 🚀 Key Features
 
+- **Multi-Ticker Buy Signal Check**: Instantly compare buy signals across multiple tickers to prioritize investments
 - **Simplified Daily Evaluation**: Clean, stateless daily evaluation logic - no complex session management
 - **28-Day Investment Spacing**: Automatic constraint enforcement preventing investments within 28 days
 - **Configurable Strategy Parameters**: Customize ticker, rolling window, trigger percentage, and investment amount via YAML
 - **Intelligent Price Monitoring**: Real-time price data fetching with smart caching and validation
 - **Comprehensive Testing**: 224 tests including property-based testing for universal correctness guarantees
 - **Robust CLI Interface**: Full-featured command-line interface with backtesting and reporting
-- **Performance Analysis**: Portfolio metrics and performance tracking
+- **Performance Analysis**: Portfolio metrics and performance tracking with buy-and-hold comparison
 - **Production Ready**: Thoroughly tested with comprehensive error handling
 
 ## 🎯 How It Works
@@ -95,6 +96,45 @@ poetry run python buy_the_dip.py --evaluate 2024-01-15
 ## 📋 Usage Examples
 
 For comprehensive usage examples, see [EXAMPLES.md](EXAMPLES.md).
+
+### Quick Buy Signal Check (Multi-Ticker)
+
+**The fastest way to check which tickers have buy signals right now:**
+
+```bash
+# Check multiple tickers at once
+poetry run buy-the-dip --tickers QQQ SPY AAPL VTI BND \
+  --check \
+  --rolling-window 30 \
+  --trigger-pct 0.95
+```
+
+**Output:**
+```
+🔍 MULTI-TICKER BUY SIGNAL CHECK (2026-01-04)
+================================================================================
+
+Ticker   Yesterday    Trigger      Signal   % from Trigger 
+--------------------------------------------------------------------------------
+QQQ      $613.12      $595.46      ❌ NO     +3.0%          
+SPY      $683.17      $655.86      ❌ NO     +4.2%          
+AAPL     $271.01      $271.88      ✅ BUY    -0.3%          
+VTI      $336.31      $322.89      ❌ NO     +4.2%          
+BND      $74.04       $70.69       ❌ NO     +4.7%          
+
+Summary: ✅ 1 of 5 tickers have buy signals
+```
+
+**Use Case**: "I have money to invest today. Which of my favorite tickers are showing buy signals according to the buy-the-dip strategy?"
+
+This helps you prioritize which ticker to invest in when you have capital available. The check ignores the 28-day constraint and simply tells you which tickers are currently at attractive entry points based on your strategy parameters.
+
+### Single Ticker Check
+
+```bash
+# Check if a single ticker has a buy signal today
+poetry run buy-the-dip --config config.yaml --check
+```
 
 ### Basic Commands
 

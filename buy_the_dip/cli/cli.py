@@ -427,6 +427,43 @@ def format_portfolio_status(tracker: InvestmentTracker, current_price: float, co
     return "\n".join(lines)
 
 
+def format_multi_ticker_check(results: list, check_date: date) -> str:
+    """Format multi-ticker check results as a table."""
+    lines = []
+    lines.append(f"\n🔍 MULTI-TICKER BUY SIGNAL CHECK ({check_date})")
+    lines.append("=" * 80)
+    lines.append("")
+    
+    # Table header
+    lines.append(f"{'Ticker':<8} {'Yesterday':<12} {'Trigger':<12} {'Signal':<8} {'% from Trigger':<15}")
+    lines.append("-" * 80)
+    
+    # Table rows
+    buy_signals = 0
+    for result in results:
+        ticker = result['ticker']
+        yesterday_price = result['yesterday_price']
+        trigger_price = result['trigger_price']
+        signal = "✅ BUY" if result['trigger_met'] else "❌ NO"
+        
+        # Calculate percentage from trigger
+        pct_from_trigger = ((yesterday_price - trigger_price) / trigger_price) * 100
+        pct_str = f"{pct_from_trigger:+.1f}%"
+        
+        lines.append(f"{ticker:<8} ${yesterday_price:<11.2f} ${trigger_price:<11.2f} {signal:<8} {pct_str:<15}")
+        
+        if result['trigger_met']:
+            buy_signals += 1
+    
+    lines.append("")
+    lines.append(f"Summary: {'✅' if buy_signals > 0 else '❌'} {buy_signals} of {len(results)} tickers have buy signals")
+    lines.append("")
+    lines.append("Note: This check ignores the 28-day constraint.")
+    lines.append("      Use --evaluate with --config to see if an investment would actually execute.")
+    
+    return "\n".join(lines)
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser."""
     parser = argparse.ArgumentParser(
@@ -437,6 +474,31 @@ def create_parser() -> argparse.ArgumentParser:
         "--config",
         type=str,
         help="Path to configuration YAML file"
+    )
+    
+    parser.add_argument(
+        "--tickers",
+        type=str,
+        nargs="+",
+        help="List of ticker symbols to check (e.g., QQQ SPY AAPL). Use with --check and strategy parameters."
+    )
+    
+    parser.add_argument(
+        "--rolling-window",
+        type=int,
+        help="Number of days for rolling maximum calculation (required with --tickers)"
+    )
+    
+    parser.add_argument(
+        "--trigger-pct",
+        type=float,
+        help="Percentage trigger (e.g., 0.95 for 95%%) (required with --tickers)"
+    )
+    
+    parser.add_argument(
+        "--amount",
+        type=float,
+        help="Investment amount in dollars (optional, not used with --check)"
     )
     
     parser.add_argument(
@@ -534,6 +596,110 @@ def main() -> None:
     logger = logging.getLogger(__name__)
     
     try:
+        # Handle multi-ticker mode
+        if args.tickers:
+            # Validate required parameters for multi-ticker mode
+            if not args.check:
+                logger.error("--tickers can only be used with --check")
+                sys.exit(1)
+            
+            if not args.rolling_window or not args.trigger_pct:
+                logger.error("--tickers requires --rolling-window and --trigger-pct")
+                sys.exit(1)
+            
+            # Validate parameter ranges
+            if args.rolling_window < 1 or args.rolling_window > 365:
+                logger.error("--rolling-window must be between 1 and 365")
+                sys.exit(1)
+            
+            if args.trigger_pct <= 0.0 or args.trigger_pct > 1.0:
+                logger.error("--trigger-pct must be between 0.0 and 1.0")
+                sys.exit(1)
+            
+            # Create shared price monitor for cache efficiency
+            price_monitor = PriceMonitor()
+            
+            # Process each ticker
+            results = []
+            today = date.today()
+            
+            for ticker in args.tickers:
+                ticker = ticker.upper()
+                
+                try:
+                    # Create config for this ticker
+                    from ..config.models import StrategyConfig
+                    config = StrategyConfig(
+                        ticker=ticker,
+                        rolling_window_days=args.rolling_window,
+                        percentage_trigger=args.trigger_pct,
+                        monthly_dca_amount=1000.0  # Dummy value, not used for checking
+                    )
+                    
+                    # Create strategy system
+                    strategy_system = StrategySystem(config, price_monitor)
+                    
+                    # Get price data for rolling window
+                    start_date = today - timedelta(days=config.rolling_window_days + 30)
+                    prices = price_monitor.get_closing_prices(ticker, start_date, today)
+                    
+                    if prices.empty:
+                        logger.warning(f"No price data available for {ticker}")
+                        continue
+                    
+                    # Get yesterday's price
+                    yesterday = today - timedelta(days=1)
+                    available_dates = [d for d in prices.index if d <= yesterday]
+                    
+                    if not available_dates:
+                        logger.warning(f"No price data available before {today} for {ticker}")
+                        continue
+                    
+                    yesterday_actual = max(available_dates)
+                    yesterday_price = float(prices[yesterday_actual])
+                    
+                    # Calculate trigger price
+                    historical_prices = prices[prices.index <= yesterday_actual]
+                    trigger_price = strategy_system.calculate_trigger_price(
+                        historical_prices,
+                        config.rolling_window_days,
+                        config.percentage_trigger
+                    )
+                    
+                    rolling_max = price_monitor.calculate_rolling_maximum(
+                        historical_prices,
+                        config.rolling_window_days
+                    )
+                    
+                    # Check if trigger is met
+                    trigger_met = yesterday_price <= trigger_price
+                    
+                    results.append({
+                        'ticker': ticker,
+                        'yesterday_price': yesterday_price,
+                        'trigger_price': trigger_price,
+                        'rolling_max': rolling_max,
+                        'trigger_met': trigger_met
+                    })
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to check {ticker}: {e}")
+                    continue
+            
+            if not results:
+                logger.error("No tickers could be checked successfully")
+                sys.exit(1)
+            
+            # Log API stats before displaying results
+            api_stats = price_monitor.get_api_stats()
+            logger.info(f"Session total - API calls: {api_stats['api_calls_made']}, Cache hits: {api_stats['cache_hits']}")
+            
+            # Display results
+            formatted_result = format_multi_ticker_check(results, today)
+            print(formatted_result)
+            
+            return
+        
         # Validate config file exists if specified
         if args.config:
             config_path = Path(args.config)
