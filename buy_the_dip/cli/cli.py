@@ -662,6 +662,12 @@ def create_parser() -> argparse.ArgumentParser:
         help="Validate cached data against live API data for a ticker"
     )
     
+    parser.add_argument(
+        "--count-trading-days",
+        action="store_true",
+        help="Use trading days instead of calendar days for rolling window calculations"
+    )
+    
     return parser
 
 
@@ -711,7 +717,8 @@ def main() -> None:
                         ticker=ticker,
                         rolling_window_days=args.rolling_window,
                         percentage_trigger=args.trigger_pct,
-                        monthly_dca_amount=1000.0  # Dummy value, not used for checking
+                        monthly_dca_amount=1000.0,  # Dummy value, not used for checking
+                        use_trading_days=args.count_trading_days
                     )
                     
                     # Create strategy system
@@ -744,10 +751,20 @@ def main() -> None:
                         config.percentage_trigger
                     )
                     
-                    rolling_max = price_monitor.calculate_rolling_maximum(
-                        historical_prices,
-                        config.rolling_window_days
-                    )
+                    # Calculate rolling maximum using same logic as strategy system
+                    if config.use_trading_days:
+                        # Use last N trading days (records)
+                        window_prices = historical_prices.tail(config.rolling_window_days)
+                    else:
+                        # Use last N calendar days
+                        if len(historical_prices) > 0:
+                            latest_date = historical_prices.index.max()
+                            cutoff_date = latest_date - timedelta(days=config.rolling_window_days)
+                            window_prices = historical_prices[historical_prices.index >= cutoff_date]
+                        else:
+                            window_prices = historical_prices
+                    
+                    rolling_max = window_prices.max() if not window_prices.empty else 0.0
                     
                     # Check if trigger is met
                     trigger_met = yesterday_price <= trigger_price
@@ -810,6 +827,10 @@ def main() -> None:
         # Load configuration
         config_manager = ConfigurationManager()
         config = config_manager.load_config(args.config)
+        
+        # Override config with CLI flag if provided
+        if args.count_trading_days:
+            config.use_trading_days = True
         
         logger.info(f"Loaded configuration for ticker: {config.ticker}")
         logger.info(f"Rolling window: {config.rolling_window_days} days")
@@ -988,10 +1009,20 @@ def main() -> None:
                     config.percentage_trigger
                 )
                 
-                rolling_max = price_monitor.calculate_rolling_maximum(
-                    historical_prices,
-                    config.rolling_window_days
-                )
+                # Calculate rolling maximum using same logic as strategy system
+                if config.use_trading_days:
+                    # Use last N trading days (records)
+                    window_prices = historical_prices.tail(config.rolling_window_days)
+                else:
+                    # Use last N calendar days
+                    if len(historical_prices) > 0:
+                        latest_date = historical_prices.index.max()
+                        cutoff_date = latest_date - timedelta(days=config.rolling_window_days)
+                        window_prices = historical_prices[historical_prices.index >= cutoff_date]
+                    else:
+                        window_prices = historical_prices
+                
+                rolling_max = window_prices.max() if not window_prices.empty else 0.0
                 
                 # Check if trigger is met
                 trigger_met = yesterday_price <= trigger_price

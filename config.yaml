@@ -33,6 +33,19 @@ ticker: "SPY"
 rolling_window_days: 90
 
 # -----------------------------------------------------------------------------
+# Window Type (Advanced)
+# -----------------------------------------------------------------------------
+# Whether to use calendar days or trading days for the rolling window
+# 
+# false: Use calendar days (default, intuitive for most users)
+#        60 days = 60 calendar days regardless of weekends/holidays
+# true:  Use trading days (advanced, excludes weekends/holidays)
+#        60 days = 60 actual trading sessions
+# 
+# Most users should leave this as false (calendar days)
+use_trading_days: false
+
+# -----------------------------------------------------------------------------
 # Trigger Threshold
 # -----------------------------------------------------------------------------
 # Percentage of the rolling maximum that triggers dollar-cost averaging

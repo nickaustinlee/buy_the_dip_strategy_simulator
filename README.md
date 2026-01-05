@@ -10,7 +10,8 @@ A Python-based stock trading strategy simulator that implements a simplified "bu
 - **28-Day Investment Spacing**: Automatic constraint enforcement preventing investments within 28 days
 - **Configurable Strategy Parameters**: Customize ticker, rolling window, trigger percentage, and investment amount via YAML
 - **Intelligent Price Monitoring**: Real-time price data fetching with smart caching and validation
-- **Comprehensive Testing**: 224 tests including property-based testing for universal correctness guarantees
+- **Calendar vs Trading Days**: Choose between calendar days (default, intuitive) or trading days for rolling window calculations
+- **Comprehensive Testing**: 233 tests including property-based testing for universal correctness guarantees
 - **Robust CLI Interface**: Full-featured command-line interface with backtesting and reporting
 - **Performance Analysis**: Portfolio metrics and performance tracking with buy-and-hold comparison
 - **Production Ready**: Thoroughly tested with comprehensive error handling
@@ -224,6 +225,50 @@ poetry run python buy_the_dip.py --backtest --period 90d   # 90 days
 poetry run python buy_the_dip.py --backtest --period 2y    # 2 years
 ```
 
+### Advanced Options
+
+```bash
+# Use trading days instead of calendar days for rolling window
+poetry run python buy_the_dip.py --count-trading-days --backtest
+
+# Check multiple tickers with trading days
+poetry run buy-the-dip --tickers QQQ SPY AAPL \
+  --check \
+  --rolling-window 60 \
+  --trigger-pct 0.95 \
+  --count-trading-days
+
+# Force fresh data (ignore cache)
+poetry run python buy_the_dip.py --ignore-cache --backtest
+```
+
+### Calendar Days vs Trading Days
+
+**Default Behavior (Calendar Days)**:
+- A 60-day rolling window includes weekends and holidays
+- More intuitive for humans ("last 2 months")
+- Includes all calendar days in the calculation
+
+**Trading Days Mode** (`--count-trading-days`):
+- A 60-day rolling window includes only trading days (Mon-Fri, excluding holidays)
+- More precise for market analysis
+- Excludes weekends and market holidays
+
+**Example**: For a 60-day window on January 15, 2024:
+- **Calendar days**: Looks back to November 16, 2023 (includes weekends)
+- **Trading days**: Looks back to October 25, 2023 (only trading days)
+
+**When to use trading days**:
+- You want more precise market-based calculations
+- You're comparing with other trading systems that use trading days
+- You want to exclude the "noise" of weekends and holidays
+
+**Configuration**:
+```yaml
+# In your config.yaml
+use_trading_days: true  # Override with --count-trading-days CLI flag
+```
+
 ### Cache Management
 
 ```bash
@@ -266,6 +311,7 @@ rolling_window_days: 90          # Days for rolling maximum calculation
 percentage_trigger: 0.90         # Trigger at 90% of rolling max (10% drop)
 monthly_dca_amount: 1000.0       # Dollar amount to invest
 data_cache_days: 30              # Days to cache price data
+use_trading_days: false          # Use calendar days (default) vs trading days
 ```
 
 ### Available Example Configurations
@@ -468,7 +514,7 @@ CLI → ConfigurationManager → StrategySystem
 
 ## 🧪 Testing
 
-The system includes comprehensive testing with 224 tests covering all functionality:
+The system includes comprehensive testing with 233 tests covering all functionality:
 
 ### Run Tests
 

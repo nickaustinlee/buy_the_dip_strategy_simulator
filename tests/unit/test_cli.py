@@ -249,7 +249,10 @@ class TestResultFormatting:
             all_investments=investments
         )
         
-        formatted = format_backtest_result(result, config)
+        # Create a mock price monitor for the test
+        from unittest.mock import Mock
+        mock_price_monitor = Mock()
+        formatted = format_backtest_result(result, config, mock_price_monitor)
         
         # Check key information is present
         assert "SPY" in formatted

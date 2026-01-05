@@ -66,6 +66,18 @@ class PriceMonitor:
             logger.debug(f"Market calendar check failed for {check_date}: {e}")
             return check_date.weekday() < 5
     
+    def _is_likely_non_trading_day(self, check_date: date) -> bool:
+        """
+        Check if a date is likely a non-trading day (weekend or holiday).
+        
+        Args:
+            check_date: Date to check
+            
+        Returns:
+            True if it's likely a non-trading day
+        """
+        return not self._is_trading_day(check_date)
+    
     def _log_no_data_reason(self, ticker: str, start_date: date, end_date: date) -> None:
         """
         Log an appropriate message when no data is available for a date range.

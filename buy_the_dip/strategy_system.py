@@ -97,13 +97,28 @@ class StrategySystem:
         if prices.empty:
             raise ValueError("Cannot calculate trigger price with empty price data")
         
-        # Calculate rolling maximum
-        rolling_max = self.price_monitor.calculate_rolling_maximum(prices, window_days)
+        # Filter prices based on window type (calendar days vs trading days)
+        if self.config.use_trading_days:
+            # Use last N trading days (records)
+            window_prices = prices.tail(window_days)
+        else:
+            # Use last N calendar days
+            if len(prices) > 0 and hasattr(prices.index, 'max') and isinstance(prices.index.max(), date):
+                # Only apply calendar day filtering if we have date indices
+                latest_date = prices.index.max()
+                cutoff_date = latest_date - timedelta(days=window_days)
+                window_prices = prices[prices.index >= cutoff_date]
+            else:
+                # Fallback to trading days behavior for non-date indices (e.g., in tests)
+                window_prices = prices.tail(window_days)
+        
+        # Calculate rolling maximum from the windowed data
+        rolling_max = window_prices.max() if not window_prices.empty else 0.0
         
         # Calculate trigger price
         trigger_price = rolling_max * trigger_pct
         
-        logger.debug(f"Calculated trigger price: {trigger_price:.2f} (rolling_max: {rolling_max:.2f}, trigger_pct: {trigger_pct:.2%})")
+        logger.debug(f"Calculated trigger price: {trigger_price:.2f} (rolling_max: {rolling_max:.2f}, trigger_pct: {trigger_pct:.2%}, window_type: {'trading' if self.config.use_trading_days else 'calendar'} days)")
         
         return trigger_price
     
@@ -221,10 +236,21 @@ class StrategySystem:
         )
         
         # Calculate rolling maximum for result
-        rolling_maximum = self.price_monitor.calculate_rolling_maximum(
-            historical_prices, 
-            self.config.rolling_window_days
-        )
+        if self.config.use_trading_days:
+            # Use last N trading days (records)
+            window_prices = historical_prices.tail(self.config.rolling_window_days)
+        else:
+            # Use last N calendar days
+            if len(historical_prices) > 0 and hasattr(historical_prices.index, 'max') and isinstance(historical_prices.index.max(), date):
+                # Only apply calendar day filtering if we have date indices
+                latest_date = historical_prices.index.max()
+                cutoff_date = latest_date - timedelta(days=self.config.rolling_window_days)
+                window_prices = historical_prices[historical_prices.index >= cutoff_date]
+            else:
+                # Fallback to trading days behavior for non-date indices
+                window_prices = historical_prices.tail(self.config.rolling_window_days)
+        
+        rolling_maximum = window_prices.max() if not window_prices.empty else 0.0
         
         # Check if trigger condition is met
         trigger_met = yesterday_price <= trigger_price

@@ -37,3 +37,7 @@ class StrategyConfig(BaseModel):
         ge=1, 
         description="Number of days to cache price data"
     )
+    use_trading_days: bool = Field(
+        default=False,
+        description="If True, use trading days for rolling window; if False, use calendar days"
+    )

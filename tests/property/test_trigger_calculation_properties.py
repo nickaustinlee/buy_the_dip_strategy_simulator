@@ -83,9 +83,13 @@ class TestTriggerCalculationProperties:
         )
         
         # Verify trigger price calculation
-        # 1. Calculate expected rolling maximum manually
+        # 1. Calculate expected rolling maximum manually using calendar days (default behavior)
         if len(price_series) >= window_days:
-            expected_rolling_max = max(prices[-window_days:])
+            # Use calendar days logic - get all prices within the window period
+            latest_date = price_series.index.max()
+            cutoff_date = latest_date - timedelta(days=window_days)
+            window_prices = price_series[price_series.index >= cutoff_date]
+            expected_rolling_max = window_prices.max()
         else:
             # Use all available data if less than window size
             expected_rolling_max = max(prices)
@@ -97,7 +101,7 @@ class TestTriggerCalculationProperties:
             f"Trigger price mismatch: {trigger_price} != {expected_trigger_price}"
         
         # Verify trigger price is always less than or equal to rolling maximum
-        rolling_max = strategy_system.price_monitor.calculate_rolling_maximum(price_series, window_days)
+        rolling_max = expected_rolling_max  # We calculated this above using the same logic
         assert trigger_price <= rolling_max + 0.01, \
             f"Trigger price {trigger_price} should be <= rolling maximum {rolling_max}"
         
@@ -142,13 +146,14 @@ class TestTriggerCalculationProperties:
         # Create pandas Series with only closing prices
         price_series = pd.Series(prices, index=dates, name='Close')
         
-        # Create strategy system
+        # Create strategy system with explicit use_trading_days=False (calendar days - default)
         config = StrategyConfig(
             ticker="SPY",
             rolling_window_days=window_days,
             percentage_trigger=percentage_trigger,
             monthly_dca_amount=2000.0,
-            data_cache_days=30
+            data_cache_days=30,
+            use_trading_days=False  # Use calendar days (default behavior)
         )
         
         strategy_system = StrategySystem(config)
@@ -159,8 +164,17 @@ class TestTriggerCalculationProperties:
         )
         
         # Manually calculate what the rolling maximum should be using only closing prices
+        # Using calendar days logic (default behavior)
         if len(prices) >= window_days:
-            manual_rolling_max = max(prices[-window_days:])
+            # Create date index to simulate calendar days logic
+            start_date = date(2023, 1, 1)
+            dates = [start_date + timedelta(days=i) for i in range(len(prices))]
+            price_series_with_dates = pd.Series(prices, index=dates, name='Close')
+            
+            latest_date = price_series_with_dates.index.max()
+            cutoff_date = latest_date - timedelta(days=window_days)
+            window_prices = price_series_with_dates[price_series_with_dates.index >= cutoff_date]
+            manual_rolling_max = window_prices.max()
         else:
             manual_rolling_max = max(prices)
         
@@ -197,13 +211,14 @@ class TestTriggerCalculationProperties:
         assume(all(price == price and price != float('inf') and price != float('-inf') 
                   for price in base_prices))
         
-        # Create strategy system
+        # Create strategy system with explicit use_trading_days=False (calendar days - default)
         config = StrategyConfig(
             ticker="SPY",
             rolling_window_days=window_days,
             percentage_trigger=percentage_trigger,
             monthly_dca_amount=2000.0,
-            data_cache_days=30
+            data_cache_days=30,
+            use_trading_days=False  # Use calendar days (default behavior)
         )
         
         strategy_system = StrategySystem(config)
@@ -229,8 +244,11 @@ class TestTriggerCalculationProperties:
             
             trigger_prices.append(trigger_price)
             
-            # Verify this calculation is based on the current window
-            expected_rolling_max = max(current_prices[-window_days:])
+            # Verify this calculation is based on the current window using calendar days logic
+            latest_date = price_series.index.max()
+            cutoff_date = latest_date - timedelta(days=window_days)
+            window_prices = price_series[price_series.index >= cutoff_date]
+            expected_rolling_max = window_prices.max()
             expected_trigger_price = expected_rolling_max * percentage_trigger
             
             assert abs(trigger_price - expected_trigger_price) < 0.01, \
