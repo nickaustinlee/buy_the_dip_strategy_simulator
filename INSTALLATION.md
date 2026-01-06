@@ -44,8 +44,10 @@ cd buy-the-dip-strategy
 poetry install
 
 # Verify installation
-poetry run python buy_the_dip.py --help
+poetry run buy-the-dip --help
 ```
+
+> **Note:** All documentation examples use `poetry run buy-the-dip`. If you're using pip/venv, replace `poetry run buy-the-dip` with `python buy_the_dip.py` in all commands.
 
 ### Method 2: pip with Virtual Environment
 
@@ -112,7 +114,7 @@ After installation, verify everything works correctly:
 ### 1. Check Command Line Interface
 ```bash
 # Using Poetry
-poetry run python buy_the_dip.py --help
+poetry run buy-the-dip --help
 
 # Using pip/venv
 python buy_the_dip.py --help
@@ -123,7 +125,7 @@ You should see the help message with available options.
 ### 2. Validate Default Configuration
 ```bash
 # Using Poetry
-poetry run python buy_the_dip.py --validate-config
+poetry run buy-the-dip --validate-config
 
 # Using pip/venv
 python buy_the_dip.py --validate-config

@@ -114,19 +114,19 @@ buy-the-dip-strategy/
 ### Essential Commands
 ```bash
 # Quick start
-poetry run python buy_the_dip.py
+poetry run buy-the-dip
 
 # Custom configuration
-poetry run python buy_the_dip.py --config my_config.yaml
+poetry run buy-the-dip --config my_config.yaml
 
 # Validate configuration
-poetry run python buy_the_dip.py --config my_config.yaml --validate-config
+poetry run buy-the-dip --config my_config.yaml --validate-config
 
 # Generate performance report
-poetry run python buy_the_dip.py --report
+poetry run buy-the-dip --report
 
 # Get help
-poetry run python buy_the_dip.py --help
+poetry run buy-the-dip --help
 ```
 
 ### Key Configuration Parameters

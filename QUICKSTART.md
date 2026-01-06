@@ -30,21 +30,16 @@ pip install -e .
 
 ### Test the Installation
 ```bash
-# Using Poetry
-poetry run python buy_the_dip.py --help
-
-# Using pip
-python buy_the_dip.py --help
+poetry run buy-the-dip --help
 ```
+
+> **Note:** All examples use `poetry run buy-the-dip`. If you're using pip/venv, replace `poetry run buy-the-dip` with `python buy_the_dip.py` in all commands.
 
 You should see the help message with available options.
 
 ### Run with Default Settings
 ```bash
-# Using Poetry
-poetry run python buy_the_dip.py
-
-# Using pip
+poetry run buy-the-dip
 python buy_the_dip.py
 ```
 
@@ -93,35 +88,35 @@ The system caches price data to reduce API calls. Sometimes you might need to ma
 
 ### Check Cache Status
 ```bash
-poetry run python buy_the_dip.py --cache-info SPY
+poetry run buy-the-dip --cache-info SPY
 ```
 
 ### Validate Cache Data
 ```bash
 # Check if cached data matches live API data
-poetry run python buy_the_dip.py --validate-cache SPY
+poetry run buy-the-dip --validate-cache SPY
 ```
 
 ### Clear Cache if Needed
 ```bash
 # Clear cache for specific ticker
-poetry run python buy_the_dip.py --clear-cache SPY
+poetry run buy-the-dip --clear-cache SPY
 
 # Clear all cache
-poetry run python buy_the_dip.py --clear-cache all
+poetry run buy-the-dip --clear-cache all
 ```
 
 ### Force Fresh Data
 ```bash
 # Ignore cache for one run (gets fresh data)
-poetry run python buy_the_dip.py --ignore-cache --backtest
+poetry run buy-the-dip --ignore-cache --backtest
 ```
 
 ## 🎛️ Try Different Strategies (2 minutes)
 
 ### Conservative (Less Risk)
 ```bash
-poetry run python buy_the_dip.py --config config_examples/conservative.yaml
+poetry run buy-the-dip --config config_examples/conservative.yaml
 ```
 - Only buys on 15% drops
 - $1,000 monthly investments
@@ -129,7 +124,7 @@ poetry run python buy_the_dip.py --config config_examples/conservative.yaml
 
 ### Aggressive (More Risk)
 ```bash
-poetry run python buy_the_dip.py --config config_examples/aggressive.yaml
+poetry run buy-the-dip --config config_examples/aggressive.yaml
 ```
 - Buys on 5% drops
 - $3,000 monthly investments
@@ -137,7 +132,7 @@ poetry run python buy_the_dip.py --config config_examples/aggressive.yaml
 
 ### Balanced (Middle Ground)
 ```bash
-poetry run python buy_the_dip.py --config config_examples/balanced.yaml
+poetry run buy-the-dip --config config_examples/balanced.yaml
 ```
 - Buys on 8% drops
 - $2,000 monthly investments
@@ -146,7 +141,7 @@ poetry run python buy_the_dip.py --config config_examples/balanced.yaml
 ## 📈 Generate Performance Report
 
 ```bash
-poetry run python buy_the_dip.py --report
+poetry run buy-the-dip --report
 ```
 
 This shows:
@@ -176,10 +171,10 @@ monthly_dca_amount: 2000.0  # Adjust based on your budget
 ### Test Your Configuration
 ```bash
 # Validate before running
-poetry run python buy_the_dip.py --config my_strategy.yaml --validate-config
+poetry run buy-the-dip --config my_strategy.yaml --validate-config
 
 # Run your strategy
-poetry run python buy_the_dip.py --config my_strategy.yaml
+poetry run buy-the-dip --config my_strategy.yaml
 ```
 
 ## 🎯 Common Use Cases
@@ -235,7 +230,7 @@ monthly_dca_amount: 1000.0
 ### Validate Your Setup
 ```bash
 # Check if everything is working
-poetry run python buy_the_dip.py --validate-config
+poetry run buy-the-dip --validate-config
 ```
 
 ### Common Issues

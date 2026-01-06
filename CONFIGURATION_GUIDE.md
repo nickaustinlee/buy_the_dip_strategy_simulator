@@ -229,7 +229,7 @@ Modify parameters based on your preferences:
 ### Step 3: Test Your Configuration
 Always validate before running:
 ```bash
-poetry run python buy_the_dip.py --config my_config.yaml --validate-config
+poetry run buy-the-dip --config my_config.yaml --validate-config
 ```
 
 ### Step 4: Monitor and Adjust
@@ -288,7 +288,7 @@ The system automatically caches price data to reduce API calls and improve perfo
 **How to validate:**
 ```bash
 # Validate cached data against live API
-poetry run python buy_the_dip.py --validate-cache SPY
+poetry run buy-the-dip --validate-cache SPY
 ```
 
 **Validation process:**
@@ -301,7 +301,7 @@ poetry run python buy_the_dip.py --validate-cache SPY
 
 **Check cache status:**
 ```bash
-poetry run python buy_the_dip.py --cache-info SPY
+poetry run buy-the-dip --cache-info SPY
 ```
 
 **Output includes:**
@@ -313,12 +313,12 @@ poetry run python buy_the_dip.py --cache-info SPY
 
 **Clear specific ticker:**
 ```bash
-poetry run python buy_the_dip.py --clear-cache SPY
+poetry run buy-the-dip --clear-cache SPY
 ```
 
 **Clear all cache:**
 ```bash
-poetry run python buy_the_dip.py --clear-cache all
+poetry run buy-the-dip --clear-cache all
 ```
 
 **When to clear cache:**
@@ -331,7 +331,7 @@ poetry run python buy_the_dip.py --clear-cache all
 
 **Force fresh data for one run:**
 ```bash
-poetry run python buy_the_dip.py --ignore-cache --backtest
+poetry run buy-the-dip --ignore-cache --backtest
 ```
 
 **Use cases:**

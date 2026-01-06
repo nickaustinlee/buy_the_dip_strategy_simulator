@@ -67,13 +67,11 @@ For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md).
 
 ## 🎯 Quick Start
 
+> **Note:** All examples use `poetry run buy-the-dip`. If you're using pip/venv instead of Poetry, replace `poetry run buy-the-dip` with `python buy_the_dip.py` in all commands.
+
 ### Run with Default Configuration
 ```bash
-# Using Poetry
-poetry run python buy_the_dip.py
-
-# Using pip installation
-python buy_the_dip.py
+poetry run buy-the-dip
 ```
 
 This monitors SPY with a 90-day rolling window, triggers on 10% drops, and simulates $1,000 monthly investments.
@@ -81,19 +79,19 @@ This monitors SPY with a 90-day rolling window, triggers on 10% drops, and simul
 ### Run a Backtest
 ```bash
 # Backtest the last year
-poetry run python buy_the_dip.py --backtest --period 1y
+poetry run buy-the-dip --backtest --period 1y
 
 # Backtest specific date range
-poetry run python buy_the_dip.py --backtest --start-date 2023-01-01 --end-date 2023-12-31
+poetry run buy-the-dip --backtest --start-date 2023-01-01 --end-date 2023-12-31
 ```
 
 ### Check Current Status
 ```bash
 # Show current portfolio status
-poetry run python buy_the_dip.py --status
+poetry run buy-the-dip --status
 
 # Evaluate a specific date
-poetry run python buy_the_dip.py --evaluate 2024-01-15
+poetry run buy-the-dip --evaluate 2024-01-15
 ```
 
 ## 📋 Usage Examples
@@ -286,22 +284,22 @@ poetry run buy-the-dip --tickers QQQ SPY AAPL \
 
 ```bash
 # Run with custom configuration
-poetry run python buy_the_dip.py --config my_config.yaml
+poetry run buy-the-dip --config my_config.yaml
 
 # Validate configuration without running
-poetry run python buy_the_dip.py --config my_config.yaml --validate-config
+poetry run buy-the-dip --config my_config.yaml --validate-config
 
 # Run backtest with different periods
-poetry run python buy_the_dip.py --backtest --period 6m    # 6 months
-poetry run python buy_the_dip.py --backtest --period 90d   # 90 days
-poetry run python buy_the_dip.py --backtest --period 2y    # 2 years
+poetry run buy-the-dip --backtest --period 6m    # 6 months
+poetry run buy-the-dip --backtest --period 90d   # 90 days
+poetry run buy-the-dip --backtest --period 2y    # 2 years
 ```
 
 ### Advanced Options
 
 ```bash
 # Use trading days instead of calendar days for rolling window
-poetry run python buy_the_dip.py --count-trading-days --backtest
+poetry run buy-the-dip --count-trading-days --backtest
 
 # Check multiple tickers with trading days
 poetry run buy-the-dip --tickers QQQ SPY AAPL \
@@ -311,7 +309,7 @@ poetry run buy-the-dip --tickers QQQ SPY AAPL \
   --count-trading-days
 
 # Force fresh data (ignore cache)
-poetry run python buy_the_dip.py --ignore-cache --backtest
+poetry run buy-the-dip --ignore-cache --backtest
 ```
 
 ### Calendar Days vs Trading Days
@@ -345,29 +343,29 @@ use_trading_days: true  # Override with --count-trading-days CLI flag
 
 ```bash
 # Show cache information
-poetry run python buy_the_dip.py --cache-info SPY
+poetry run buy-the-dip --cache-info SPY
 
 # Validate cached data against live API
-poetry run python buy_the_dip.py --validate-cache SPY
+poetry run buy-the-dip --validate-cache SPY
 
 # Clear cache for specific ticker
-poetry run python buy_the_dip.py --clear-cache SPY
+poetry run buy-the-dip --clear-cache SPY
 
 # Force fresh data (ignore cache)
-poetry run python buy_the_dip.py --ignore-cache --backtest
+poetry run buy-the-dip --ignore-cache --backtest
 ```
 
 ### Try Different Strategies
 
 ```bash
 # Conservative: 15% drops, $1K monthly
-poetry run python buy_the_dip.py --config config_examples/conservative.yaml
+poetry run buy-the-dip --config config_examples/conservative.yaml
 
 # Aggressive: 5% drops, $3K monthly  
-poetry run python buy_the_dip.py --config config_examples/aggressive.yaml
+poetry run buy-the-dip --config config_examples/aggressive.yaml
 
 # Individual stock: Apple with custom parameters
-poetry run python buy_the_dip.py --config config_examples/individual_stock.yaml
+poetry run buy-the-dip --config config_examples/individual_stock.yaml
 ```
 
 ## ⚙️ Configuration
@@ -414,26 +412,26 @@ The system maintains a **persistent portfolio** that accumulates investments acr
 **Daily Evaluation Mode**: Run the strategy on specific dates
 ```bash
 # Evaluate today (defaults to current date)
-poetry run python buy_the_dip.py --evaluate
+poetry run buy-the-dip --evaluate
 
 # Or explicitly specify today's date (macOS/Linux)
-poetry run python buy_the_dip.py --evaluate $(date +%Y-%m-%d)
+poetry run buy-the-dip --evaluate $(date +%Y-%m-%d)
 
 # Evaluate a historical date when there was likely a dip
-poetry run python buy_the_dip.py --evaluate 2024-03-15
+poetry run buy-the-dip --evaluate 2024-03-15
 ```
 
 **Automatic Mode**: Run the strategy regularly (e.g., daily cron job)
 ```bash
 # Simple cron job - runs daily at 5 PM (after market close)
 # Add this to your crontab with: crontab -e
-0 17 * * 1-5 cd /path/to/buy-the-dip && poetry run python buy_the_dip.py --evaluate
+0 17 * * 1-5 cd /path/to/buy-the-dip && poetry run buy-the-dip --evaluate
 
 # Or with explicit date (same result)
-0 17 * * 1-5 cd /path/to/buy-the-dip && poetry run python buy_the_dip.py --evaluate $(date +%Y-%m-%d)
+0 17 * * 1-5 cd /path/to/buy-the-dip && poetry run buy-the-dip --evaluate $(date +%Y-%m-%d)
 
 # macOS: Use full path to poetry
-0 17 * * 1-5 cd /path/to/buy-the-dip && /usr/local/bin/poetry run python buy_the_dip.py --evaluate
+0 17 * * 1-5 cd /path/to/buy-the-dip && /usr/local/bin/poetry run buy-the-dip --evaluate
 ```
 
 **Note**: The cron job runs Monday-Friday (1-5) at 5 PM, after market close. Adjust timing based on your timezone and when you want to check for dips.
@@ -442,7 +440,7 @@ poetry run python buy_the_dip.py --evaluate 2024-03-15
 
 **Check Current Portfolio**:
 ```bash
-poetry run python buy_the_dip.py --status
+poetry run buy-the-dip --status
 ```
 
 **Empty Portfolio** (when starting):
@@ -479,13 +477,13 @@ Percentage Return: 15.51%
 
 **Backtest Example** (doesn't save investments):
 ```bash
-poetry run python buy_the_dip.py --backtest --period 1y
+poetry run buy-the-dip --backtest --period 1y
 # Shows what would have happened, but doesn't modify your portfolio
 ```
 
 **Daily Evaluation** (saves investments):
 ```bash
-poetry run python buy_the_dip.py --evaluate 2024-03-15
+poetry run buy-the-dip --evaluate 2024-03-15
 # If conditions are met, adds investment to your persistent portfolio
 ```
 
