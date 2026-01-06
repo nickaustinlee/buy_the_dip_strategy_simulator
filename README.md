@@ -4,8 +4,9 @@ A Python-based stock trading strategy simulator that implements a simplified "bu
 
 ## 🚀 Key Features
 
-- **Automated Buy Signal Alerts**: Get macOS notifications when buy signals are detected - perfect for daily cron jobs
+- **Automated Buy Signal Alerts**: Get macOS notifications with timestamps when buy signals are detected - perfect for daily cron jobs
 - **Multi-Ticker Buy Signal Check**: Instantly compare buy signals across multiple tickers to prioritize investments
+- **Latest Closing Price Mode**: Use `--latest-closing-price` flag for evening decision-making with today's closing price
 - **Simplified Daily Evaluation**: Clean, stateless daily evaluation logic - no complex session management
 - **28-Day Investment Spacing**: Automatic constraint enforcement preventing investments within 28 days
 - **Configurable Strategy Parameters**: Customize ticker, rolling window, trigger percentage, and investment amount via YAML
@@ -116,7 +117,7 @@ poetry run buy-the-dip --tickers QQQ SPY AAPL VTI BND \
 🔍 MULTI-TICKER BUY SIGNAL CHECK (2026-01-04)
 ================================================================================
 
-Ticker   Yesterday    Trigger      Signal   % from Trigger 
+Ticker   Closing      Trigger      Signal   % from Trigger 
 --------------------------------------------------------------------------------
 QQQ      $613.12      $595.46      ❌ NO     +3.0%          
 SPY      $683.17      $655.86      ❌ NO     +4.2%          
@@ -149,6 +150,8 @@ poetry run buy-the-dip --tickers QQQ SPY AAPL VTI BND \
 Buy Signals Detected (1 of 5):
 
 ✅ AAPL: $271.01 (trigger $271.88, -0.3%)
+
+TS: January 6, 2026 @ 1:05 PM Local
 ```
 
 ![macOS Desktop Alert Example](screenshots/osx_desktop_alert_example.png)
@@ -191,12 +194,24 @@ crontab -e
 - Checks all your tickers for buy signals
 - Sends macOS notification only when buy signals are detected
 - No terminal needs to be open - runs in background
-- Notification shows which tickers have signals with prices
+- Notification shows which tickers have signals with prices and timestamps
+- Timestamp shows exactly when the report ran (helpful for cron jobs)
 
 **Customize the schedule:**
 - `0 17 * * 1-5` = 5:00 PM, Monday-Friday
 - `30 16 * * 1-5` = 4:30 PM, Monday-Friday
 - `0 9 * * 1-5` = 9:00 AM, Monday-Friday
+- `5 13 * * 1-5` = 1:05 PM, Monday-Friday (Pacific Time - after market close)
+
+**For Pacific Time users:**
+If you're in Pacific Time, the market closes at 1:00 PM, so running at 1:05 PM ensures you get the final closing prices:
+```bash
+# Edit crontab
+crontab -e
+
+# Add this line for 1:05 PM Pacific, Monday-Friday:
+5 13 * * 1-5 /Users/yourusername/check_buy_signals.sh
+```
 
 **Note**: macOS notifications only work when your Mac is awake. Consider adjusting your Energy Saver settings or using `pmset` to wake your Mac for the cron job if needed.
 
@@ -208,6 +223,58 @@ poetry run buy-the-dip --config config.yaml --check
 
 # With notifications
 poetry run buy-the-dip --config config.yaml --check --notify
+
+# Use latest closing price for evening decision-making
+poetry run buy-the-dip --config config.yaml --check --latest-closing-price --notify
+```
+
+### Latest Closing Price Mode
+
+**For evening decision-making after market close:**
+
+The `--latest-closing-price` flag allows you to use today's closing price instead of the last trading day's price. This is perfect for making investment decisions in the evening after the market has closed.
+
+```bash
+# Default behavior (uses last trading day's closing price)
+poetry run buy-the-dip --config config.yaml --check
+
+# Evening mode (uses today's closing price if available)
+poetry run buy-the-dip --config config.yaml --check --latest-closing-price
+```
+
+**Key differences:**
+- **Default mode**: Always uses the last trading day's closing price (consistent regardless of when you run it)
+- **Latest closing price mode**: Uses today's closing price if available, errors if not yet available
+
+**Example output with latest closing price:**
+```
+🔍 BUY SIGNAL CHECK - SPY (2026-01-06)
+==================================================
+Closing Price: $445.20
+Trigger Price: $450.00
+Rolling Maximum (90d): $500.00
+Trigger Percentage: 90.0%
+
+✅ BUY SIGNAL: Trigger condition is met!
+   Closing price ($445.20) is at or below
+   the trigger price ($450.00)
+```
+
+**Error handling:**
+If you run with `--latest-closing-price` but today's closing price isn't available yet:
+```
+ERROR - Today's closing price not available for SPY. Yahoo Finance may not have updated yet - please try again later.
+```
+
+**Multi-ticker support:**
+```bash
+# Check multiple tickers with latest closing prices
+poetry run buy-the-dip --tickers QQQ SPY AAPL \
+  --check \
+  --rolling-window 30 \
+  --trigger-pct 0.95 \
+  --latest-closing-price \
+  --notify
 ```
 
 ### Basic Commands
@@ -447,7 +514,7 @@ cat ~/.buy_the_dip/data/investments.json
 ```
 🎯 EVALUATION RESULT - SPY on 2024-01-15
 ============================================================
-Yesterday's Price: $445.20
+Closing Price: $445.20
 Trigger Price: $450.00
 Rolling Maximum (90d): $500.00
 Trigger Met: ✅ YES
