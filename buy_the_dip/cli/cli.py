@@ -497,15 +497,15 @@ def format_portfolio_status(tracker: InvestmentTracker, current_price: float, co
     return "\n".join(lines)
 
 
-def format_multi_ticker_check(results: list, check_date: date) -> str:
+def format_multi_ticker_check(results: list, check_date: date, use_latest_price: bool = False) -> str:
     """Format multi-ticker check results as a table."""
     lines = []
     lines.append(f"\n🔍 MULTI-TICKER BUY SIGNAL CHECK ({check_date})")
     lines.append("=" * 80)
     lines.append("")
     
-    # Table header
-    lines.append(f"{'Ticker':<8} {'Yesterday':<12} {'Trigger':<12} {'Signal':<8} {'% from Trigger':<15}")
+    # Always use "Closing" for consistency
+    lines.append(f"{'Ticker':<8} {'Closing':<12} {'Trigger':<12} {'Signal':<8} {'% from Trigger':<15}")
     lines.append("-" * 80)
     
     # Table rows
@@ -668,6 +668,12 @@ def create_parser() -> argparse.ArgumentParser:
         help="Use trading days instead of calendar days for rolling window calculations"
     )
     
+    parser.add_argument(
+        "--latest-closing-price",
+        action="store_true",
+        help="Use latest available closing price instead of last trading day before today (for evening decision-making). Errors if today's closing price not available yet."
+    )
+    
     return parser
 
 
@@ -680,6 +686,11 @@ def main() -> None:
     logger = logging.getLogger(__name__)
     
     try:
+        # Validate flag combinations
+        if args.latest_closing_price and not args.check:
+            logger.error("--latest-closing-price can only be used with --check")
+            sys.exit(1)
+        
         # Handle multi-ticker mode
         if args.tickers:
             # Validate required parameters for multi-ticker mode
@@ -732,19 +743,29 @@ def main() -> None:
                         logger.warning(f"No price data available for {ticker}")
                         continue
                     
-                    # Get yesterday's price
-                    yesterday = today - timedelta(days=1)
-                    available_dates = [d for d in prices.index if d <= yesterday]
-                    
-                    if not available_dates:
-                        logger.warning(f"No price data available before {today} for {ticker}")
-                        continue
-                    
-                    yesterday_actual = max(available_dates)
-                    yesterday_price = float(prices[yesterday_actual])
+                    # Get reference price (yesterday's or latest based on flag)
+                    if args.latest_closing_price:
+                        # Use today's closing price - error if not available
+                        if today not in prices.index:
+                            logger.warning(f"Today's closing price not available for {ticker}. Skipping.")
+                            continue
+                        
+                        reference_date = today
+                        reference_price = float(prices[today])
+                    else:
+                        # Use last trading day's closing price (default behavior)
+                        yesterday = today - timedelta(days=1)
+                        available_dates = [d for d in prices.index if d <= yesterday]
+                        
+                        if not available_dates:
+                            logger.warning(f"No price data available before {today} for {ticker}")
+                            continue
+                        
+                        reference_date = max(available_dates)
+                        reference_price = float(prices[reference_date])
                     
                     # Calculate trigger price
-                    historical_prices = prices[prices.index <= yesterday_actual]
+                    historical_prices = prices[prices.index <= reference_date]
                     trigger_price = strategy_system.calculate_trigger_price(
                         historical_prices,
                         config.rolling_window_days,
@@ -767,11 +788,11 @@ def main() -> None:
                     rolling_max = window_prices.max() if not window_prices.empty else 0.0
                     
                     # Check if trigger is met
-                    trigger_met = yesterday_price <= trigger_price
+                    trigger_met = reference_price <= trigger_price
                     
                     results.append({
                         'ticker': ticker,
-                        'yesterday_price': yesterday_price,
+                        'yesterday_price': reference_price,  # Keep same key name for compatibility
                         'trigger_price': trigger_price,
                         'rolling_max': rolling_max,
                         'trigger_met': trigger_met
@@ -794,7 +815,7 @@ def main() -> None:
             logger.info(f"Session total - API calls: {api_stats['api_calls_made']}, Cache hits: {api_stats['cache_hits']}")
             
             # Display results
-            formatted_result = format_multi_ticker_check(results, today)
+            formatted_result = format_multi_ticker_check(results, today, args.latest_closing_price)
             print(formatted_result)
             
             # Send notification if requested and buy signals detected
@@ -810,6 +831,13 @@ def main() -> None:
                         trigger = result['trigger_price']
                         pct = ((price - trigger) / trigger) * 100
                         notification_lines.append(f"✅ {ticker}: ${price:.2f} (trigger ${trigger:.2f}, {pct:+.1f}%)")
+                
+                # Add timestamp to the notification
+                from datetime import datetime
+                current_time = datetime.now()
+                timestamp_str = current_time.strftime("%B %d, %Y @ %I:%M %p Local")
+                notification_lines.append("")
+                notification_lines.append(f"TS: {timestamp_str}")
                 
                 notification_message = "\\n".join(notification_lines)
                 send_notification("Buy the Dip Alert", notification_message)
@@ -955,7 +983,10 @@ def main() -> None:
                 
                 # Send notification if investment was executed
                 if args.notify and result.investment_executed:
-                    message = f"Investment executed! ${result.investment.amount:.0f} in {config.ticker} at ${result.investment.price:.2f}"
+                    from datetime import datetime
+                    current_time = datetime.now()
+                    timestamp_str = current_time.strftime("%B %d, %Y @ %I:%M %p Local")
+                    message = f"Investment executed! ${result.investment.amount:.0f} in {config.ticker} at ${result.investment.price:.2f}\\n\\nTS: {timestamp_str}"
                     send_notification("Buy the Dip - Investment Executed", message)
                     logger.info(f"Notification sent: {message}")
                 
@@ -990,19 +1021,32 @@ def main() -> None:
                     logger.error(f"No price data available for {config.ticker}")
                     sys.exit(1)
                 
-                # Get yesterday's price
-                yesterday = today - timedelta(days=1)
-                available_dates = [d for d in prices.index if d <= yesterday]
+                # Get reference price (yesterday's or latest based on flag)
+                if args.latest_closing_price:
+                    # Use today's closing price - error if not available
+                    if today not in prices.index:
+                        logger.error(f"Today's closing price not available for {config.ticker}. Yahoo Finance may not have updated yet - please try again later.")
+                        sys.exit(1)
+                    
+                    reference_date = today
+                    reference_price = float(prices[today])
+                else:
+                    # Use last trading day's closing price (default behavior)
+                    yesterday = today - timedelta(days=1)
+                    available_dates = [d for d in prices.index if d <= yesterday]
+                    
+                    if not available_dates:
+                        logger.error(f"No price data available before {today}")
+                        sys.exit(1)
+                    
+                    reference_date = max(available_dates)
+                    reference_price = float(prices[reference_date])
                 
-                if not available_dates:
-                    logger.error(f"No price data available before {today}")
-                    sys.exit(1)
+                # Always use "Closing Price" label for consistency
+                reference_label = "Closing Price"
                 
-                yesterday_actual = max(available_dates)
-                yesterday_price = float(prices[yesterday_actual])
-                
-                # Calculate trigger price
-                historical_prices = prices[prices.index <= yesterday_actual]
+                # Calculate trigger price using historical data up to reference date
+                historical_prices = prices[prices.index <= reference_date]
                 trigger_price = strategy_system.calculate_trigger_price(
                     historical_prices,
                     config.rolling_window_days,
@@ -1025,12 +1069,12 @@ def main() -> None:
                 rolling_max = window_prices.max() if not window_prices.empty else 0.0
                 
                 # Check if trigger is met
-                trigger_met = yesterday_price <= trigger_price
+                trigger_met = reference_price <= trigger_price
                 
                 # Display result
                 print(f"\n🔍 BUY SIGNAL CHECK - {config.ticker} ({today})")
                 print("=" * 50)
-                print(f"Yesterday's Price: ${yesterday_price:.2f}")
+                print(f"{reference_label}: ${reference_price:.2f}")
                 print(f"Trigger Price: ${trigger_price:.2f}")
                 print(f"Rolling Maximum ({config.rolling_window_days}d): ${rolling_max:.2f}")
                 print(f"Trigger Percentage: {config.percentage_trigger:.1%}")
@@ -1038,19 +1082,22 @@ def main() -> None:
                 
                 if trigger_met:
                     print("✅ BUY SIGNAL: Trigger condition is met!")
-                    print(f"   Yesterday's price (${yesterday_price:.2f}) is at or below")
+                    print(f"   Closing price (${reference_price:.2f}) is at or below")
                     print(f"   the trigger price (${trigger_price:.2f})")
                     
                     # Send notification if requested
                     if args.notify:
-                        message = f"{config.ticker} has a buy signal at ${yesterday_price:.2f}!"
+                        from datetime import datetime
+                        current_time = datetime.now()
+                        timestamp_str = current_time.strftime("%B %d, %Y @ %I:%M %p Local")
+                        message = f"{config.ticker} has a buy signal at ${reference_price:.2f}!\\n\\nTS: {timestamp_str}"
                         send_notification("Buy the Dip Alert", message)
                         logger.info(f"Notification sent: {message}")
                 else:
                     print("❌ NO BUY SIGNAL: Trigger condition not met")
-                    print(f"   Yesterday's price (${yesterday_price:.2f}) is above")
+                    print(f"   Closing price (${reference_price:.2f}) is above")
                     print(f"   the trigger price (${trigger_price:.2f})")
-                    pct_from_trigger = ((yesterday_price - trigger_price) / trigger_price) * 100
+                    pct_from_trigger = ((reference_price - trigger_price) / trigger_price) * 100
                     print(f"   Price is {pct_from_trigger:.1f}% above trigger")
                 
                 print("")
