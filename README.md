@@ -132,7 +132,11 @@ This helps you prioritize which ticker to invest in when you have capital availa
 **Note:** For consistent behavior, the program uses the prior trading day's closing price by default. If you want to use today's closing price (e.g., running after 4:00 PM ET and using today's close), use the `--latest-closing-price` flag:
 
 ```bash
-poetry run buy-the-dip --check --tickers AAPL MSFT --rolling-window 60 --trigger-pct 0.95 --latest-closing-price
+poetry run buy-the-dip --tickers AAPL MSFT \
+   --check \
+   --rolling-window 60 \
+   --trigger-pct 0.95 \
+   --latest-closing-price
 ```
 
 ### Automated Buy Signal Alerts (macOS)
