@@ -100,7 +100,7 @@ poetry run python buy_the_dip.py --evaluate 2024-01-15
 
 For comprehensive usage examples, see [EXAMPLES.md](EXAMPLES.md).
 
-### Quick Buy Signal Check (Multi-Ticker)
+### Quick Buy Signal Check (Multi-Ticker) with --check flag
 
 **The fastest way to check which tickers have buy signals right now:**
 
@@ -111,7 +111,6 @@ poetry run buy-the-dip --tickers QQQ SPY AAPL VTI BND \
   --rolling-window 30 \
   --trigger-pct 0.95
 ```
-
 **Output:**
 ```
 🔍 MULTI-TICKER BUY SIGNAL CHECK (2026-01-04)
@@ -131,6 +130,12 @@ Summary: ✅ 1 of 5 tickers have buy signals
 **Use Case**: "I have money to invest today. Which of my favorite tickers are showing buy signals according to the buy-the-dip strategy?"
 
 This helps you prioritize which ticker to invest in when you have capital available. The check ignores the 28-day constraint and simply tells you which tickers are currently at attractive entry points based on your strategy parameters.
+
+**Note:** For consistent behavior, the program uses the prior trading day's closing price by default. If you want to use today's closing price (e.g., running after 4:00 PM ET and using today's close), use the `--latest-closing-price` flag:
+
+```bash
+poetry run buy-the-dip --check --tickers AAPL MSFT --rolling-window 60 --trigger-pct 0.95 --latest-closing-price
+```
 
 ### Automated Buy Signal Alerts (macOS)
 
