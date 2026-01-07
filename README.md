@@ -597,7 +597,7 @@ CLI → ConfigurationManager → StrategySystem
 
 The system includes comprehensive testing with 233 tests covering all functionality:
 
-### Run Tests
+### Run Tests Locally with Poetry
 
 ```bash
 # Run all tests
@@ -611,6 +611,46 @@ poetry run pytest tests/unit/          # Unit tests
 poetry run pytest tests/property/      # Property-based tests
 poetry run pytest tests/integration/   # Integration tests
 ```
+
+### Run Full CI Tests Locally with Docker (Recommended Before Committing)
+
+**Best Practice**: Run the exact same tests that GitHub Actions will run before pushing your code. This ensures your changes will pass CI.
+
+```bash
+# Run all Python versions (3.11, 3.12, 3.13, 3.14) in parallel
+docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+
+# Clean up containers after tests
+docker-compose -f docker-compose.test.yml down
+```
+
+**What this tests**:
+- ✅ **Unit tests** - All 220+ tests across all Python versions
+- ✅ **CLI functionality** - Ensures the CLI works correctly
+- ✅ **Type checking** - Runs mypy to catch type errors
+- ✅ **Code formatting** - Validates black formatting
+
+**Why use Docker tests**:
+- **Identical to GitHub Actions**: Same checks that run in CI
+- **Multi-version testing**: Tests Python 3.11, 3.12, 3.13, and 3.14 simultaneously
+- **Catch issues early**: Find problems before pushing to GitHub
+- **Clean environment**: Tests run in isolated containers
+
+**Expected output**:
+```
+test-python-3-11_1  | ✅ Python 3.11 all checks passed!
+test-python-3-12_1  | ✅ Python 3.12 all checks passed!
+test-python-3-13_1  | ✅ Python 3.13 all checks passed!
+test-python-3-14_1  | ✅ Python 3.14 all checks passed!
+```
+
+**Note about mypy warnings**: You may see mypy messages like "Library stubs not installed" or "Found 2 errors in 2 files" during type checking. These are benign warnings about optional type stubs for third-party libraries (like yfinance and pandas-market-calendars that don't provide type hints). We use `--ignore-missing-imports` to suppress these, and they don't cause test failures. As long as you see "✅ all checks passed!" for each Python version, your code is ready to commit.
+
+**If tests fail**:
+- Check the output for specific errors
+- Fix the issues locally
+- Run Docker tests again before committing
+- All tests must pass before pushing to GitHub
 
 ### Test Categories
 
