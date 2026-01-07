@@ -33,15 +33,19 @@ class TestCacheValidation:
         test_date = date.today() - timedelta(days=5)  # 5 days ago
         cached_price = 150.25
 
-        # Pre-populate cache with test data
-        cached_data = pd.DataFrame({"Date": [test_date], "Close": [cached_price]})
+        # Pre-populate cache with test data (dual price format)
+        cached_data = pd.DataFrame(
+            {"Date": [test_date], "Close": [cached_price], "Adj Close": [cached_price - 1.0]}
+        )
         monitor._save_cached_data("SPY", cached_data)
 
         # Mock API to return matching data
         mock_yf = Mock()
         mock_stock = Mock()
-        # Create mock data with the exact same date as cached data
-        mock_history_data = pd.DataFrame({"Close": [cached_price]})  # Same price as cached
+        # Create mock data with the exact same date as cached data (dual price format)
+        mock_history_data = pd.DataFrame(
+            {"Close": [cached_price], "Adj Close": [cached_price - 1.0]}
+        )  # Same prices as cached
         # Set the index to match the test_date exactly
         mock_history_data.index = pd.DatetimeIndex([pd.Timestamp(test_date)])
 
@@ -68,15 +72,19 @@ class TestCacheValidation:
         cached_price = 150.25
         api_price = 152.75  # Different from cached
 
-        # Pre-populate cache with test data
-        cached_data = pd.DataFrame({"Date": [test_date], "Close": [cached_price]})
+        # Pre-populate cache with test data (dual price format)
+        cached_data = pd.DataFrame(
+            {"Date": [test_date], "Close": [cached_price], "Adj Close": [cached_price - 1.0]}
+        )
         monitor._save_cached_data("SPY", cached_data)
 
         # Mock API to return different data
         mock_yf = Mock()
         mock_stock = Mock()
-        # Create mock data with the exact same date as cached data
-        mock_history_data = pd.DataFrame({"Close": [api_price]})  # Different price from cached
+        # Create mock data with the exact same date as cached data (dual price format)
+        mock_history_data = pd.DataFrame(
+            {"Close": [api_price], "Adj Close": [api_price - 1.0]}
+        )  # Different prices from cached
         # Set the index to match the test_date exactly
         mock_history_data.index = pd.DatetimeIndex([pd.Timestamp(test_date)])
 
@@ -116,9 +124,9 @@ class TestCacheValidation:
         """Test cache validation when API call fails."""
         monitor = PriceMonitor(cache_dir=temp_cache_dir)
 
-        # Pre-populate cache with test data
+        # Pre-populate cache with test data (dual price format)
         test_date = date.today() - timedelta(days=5)
-        cached_data = pd.DataFrame({"Date": [test_date], "Close": [150.25]})
+        cached_data = pd.DataFrame({"Date": [test_date], "Close": [150.25], "Adj Close": [149.25]})
         monitor._save_cached_data("SPY", cached_data)
 
         # Mock API to fail
@@ -152,14 +160,22 @@ class TestCacheValidation:
         cached_prices = [150.25, 151.50, 149.75]
         api_prices = [150.25, 152.00, 149.75]  # Middle price is different
 
-        # Pre-populate cache
-        cached_data = pd.DataFrame({"Date": test_dates, "Close": cached_prices})
+        # Pre-populate cache (dual price format)
+        cached_data = pd.DataFrame(
+            {
+                "Date": test_dates,
+                "Close": cached_prices,
+                "Adj Close": [p - 1.0 for p in cached_prices],
+            }
+        )
         monitor._save_cached_data("SPY", cached_data)
 
         # Mock API to return mixed matching/non-matching data
         mock_yf = Mock()
         mock_stock = Mock()
-        mock_history_data = pd.DataFrame({"Close": api_prices})
+        mock_history_data = pd.DataFrame(
+            {"Close": api_prices, "Adj Close": [p - 1.0 for p in api_prices]}
+        )
         # Set the index to match the test dates exactly
         mock_history_data.index = pd.DatetimeIndex([pd.Timestamp(d) for d in test_dates])
 
@@ -189,14 +205,16 @@ class TestCacheValidation:
         cached_price = 150.25
         api_price = 150.251  # Very small difference (0.001)
 
-        # Pre-populate cache
-        cached_data = pd.DataFrame({"Date": [test_date], "Close": [cached_price]})
+        # Pre-populate cache (dual price format)
+        cached_data = pd.DataFrame(
+            {"Date": [test_date], "Close": [cached_price], "Adj Close": [cached_price - 1.0]}
+        )
         monitor._save_cached_data("SPY", cached_data)
 
         # Mock API with tiny difference
         mock_yf = Mock()
         mock_stock = Mock()
-        mock_history_data = pd.DataFrame({"Close": [api_price]})
+        mock_history_data = pd.DataFrame({"Close": [api_price], "Adj Close": [api_price - 1.0]})
         # Set the index to match the test_date exactly
         mock_history_data.index = pd.DatetimeIndex([pd.Timestamp(test_date)])
 
@@ -220,14 +238,16 @@ class TestCacheValidation:
         cached_price = 150.25
         api_price = 150.30  # 5 cent difference (> 0.01 tolerance)
 
-        # Pre-populate cache
-        cached_data = pd.DataFrame({"Date": [test_date], "Close": [cached_price]})
+        # Pre-populate cache (dual price format)
+        cached_data = pd.DataFrame(
+            {"Date": [test_date], "Close": [cached_price], "Adj Close": [cached_price - 1.0]}
+        )
         monitor._save_cached_data("SPY", cached_data)
 
         # Mock API with significant difference
         mock_yf = Mock()
         mock_stock = Mock()
-        mock_history_data = pd.DataFrame({"Close": [api_price]})
+        mock_history_data = pd.DataFrame({"Close": [api_price], "Adj Close": [api_price - 1.0]})
         # Set the index to match the test_date exactly
         mock_history_data.index = pd.DatetimeIndex([pd.Timestamp(test_date)])
 
@@ -252,14 +272,22 @@ class TestCacheValidation:
         test_dates = [base_date + timedelta(days=i) for i in range(5)]
         cached_prices = [150.25, 151.50, 149.75, 152.00, 150.80]
 
-        # Pre-populate cache
-        cached_data = pd.DataFrame({"Date": test_dates, "Close": cached_prices})
+        # Pre-populate cache (dual price format)
+        cached_data = pd.DataFrame(
+            {
+                "Date": test_dates,
+                "Close": cached_prices,
+                "Adj Close": [p - 1.0 for p in cached_prices],
+            }
+        )
         monitor._save_cached_data("SPY", cached_data)
 
         # Mock API to return matching data
         mock_yf = Mock()
         mock_stock = Mock()
-        mock_history_data = pd.DataFrame({"Close": cached_prices})
+        mock_history_data = pd.DataFrame(
+            {"Close": cached_prices, "Adj Close": [p - 1.0 for p in cached_prices]}
+        )
         # Set the index to match the test dates exactly
         mock_history_data.index = pd.DatetimeIndex([pd.Timestamp(d) for d in test_dates])
 
@@ -286,16 +314,16 @@ class TestCacheValidation:
         """Test that cache validation doesn't permanently modify the cache."""
         monitor = PriceMonitor(cache_dir=temp_cache_dir)
 
-        # Pre-populate cache and in-memory cache
+        # Pre-populate cache and in-memory cache (dual price format)
         test_date = date.today() - timedelta(days=5)
-        cached_data = pd.DataFrame({"Date": [test_date], "Close": [150.25]})
+        cached_data = pd.DataFrame({"Date": [test_date], "Close": [150.25], "Adj Close": [149.25]})
         monitor._save_cached_data("SPY", cached_data)
         monitor._cache["SPY"] = cached_data.copy()
 
         # Mock API
         mock_yf = Mock()
         mock_stock = Mock()
-        mock_history_data = pd.DataFrame({"Close": [150.25]})
+        mock_history_data = pd.DataFrame({"Close": [150.25], "Adj Close": [149.25]})
         # Set the index to match the test_date exactly
         mock_history_data.index = pd.DatetimeIndex([pd.Timestamp(test_date)])
 
@@ -344,16 +372,24 @@ class TestSpecificDateValidation:
             base_date + timedelta(days=4),
         ]
 
-        # Create cached data with potentially incorrect values
+        # Create cached data with potentially incorrect values (dual price format)
         cached_prices = [580.50, 582.25, 579.75, 583.00, 581.50]
-        cached_data = pd.DataFrame({"Date": problematic_dates, "Close": cached_prices})
+        cached_data = pd.DataFrame(
+            {
+                "Date": problematic_dates,
+                "Close": cached_prices,
+                "Adj Close": [p - 2.0 for p in cached_prices],
+            }
+        )
         monitor._save_cached_data("SPY", cached_data)
 
         # Mock API with "correct" values (simulating what API should return)
         correct_prices = [580.52, 582.27, 579.73, 583.02, 581.48]  # Slightly different
         mock_yf = Mock()
         mock_stock = Mock()
-        mock_history_data = pd.DataFrame({"Close": correct_prices})
+        mock_history_data = pd.DataFrame(
+            {"Close": correct_prices, "Adj Close": [p - 2.0 for p in correct_prices]}
+        )
         # Set the index to match the test dates exactly
         mock_history_data.index = pd.DatetimeIndex([pd.Timestamp(d) for d in problematic_dates])
 
@@ -400,8 +436,10 @@ class TestSpecificDateValidation:
         sunday = saturday + timedelta(days=1)
         weekend_dates = [saturday, sunday]
 
-        # Create cached data for weekend (this shouldn't exist in real cache)
-        cached_data = pd.DataFrame({"Date": weekend_dates, "Close": [580.00, 580.00]})
+        # Create cached data for weekend (this shouldn't exist in real cache) (dual price format)
+        cached_data = pd.DataFrame(
+            {"Date": weekend_dates, "Close": [580.00, 580.00], "Adj Close": [578.00, 578.00]}
+        )
         monitor._save_cached_data("SPY", cached_data)
 
         # Mock API to return empty data for weekends
@@ -431,8 +469,10 @@ class TestSpecificDateValidation:
 
         simulated_holiday = today - timedelta(days=days_back)
 
-        # Create cached data for holiday (this shouldn't exist)
-        cached_data = pd.DataFrame({"Date": [simulated_holiday], "Close": [580.00]})
+        # Create cached data for holiday (this shouldn't exist) (dual price format)
+        cached_data = pd.DataFrame(
+            {"Date": [simulated_holiday], "Close": [580.00], "Adj Close": [578.00]}
+        )
         monitor._save_cached_data("SPY", cached_data)
 
         # Mock API to return empty data for holidays
@@ -464,19 +504,22 @@ class TestIgnoreCacheFunctionality:
         """Test that ignore_cache=True bypasses cached data."""
         monitor = PriceMonitor(cache_dir=temp_cache_dir)
 
-        # Pre-populate cache with old data
+        # Pre-populate cache with old data (dual price format)
         test_date = date(2023, 12, 1)
         cached_price = 150.25
         api_price = 155.75  # Different from cached
 
-        cached_data = pd.DataFrame({"Date": [test_date], "Close": [cached_price]})
+        cached_data = pd.DataFrame(
+            {"Date": [test_date], "Close": [cached_price], "Adj Close": [cached_price - 1.0]}
+        )
         monitor._save_cached_data("SPY", cached_data)
 
         # Mock API to return different data
         mock_yf = Mock()
         mock_stock = Mock()
         mock_history_data = pd.DataFrame(
-            {"Close": [api_price]}, index=pd.date_range(test_date, periods=1)
+            {"Close": [api_price], "Adj Close": [api_price - 1.0]},
+            index=pd.date_range(test_date, periods=1),
         )
 
         mock_stock.history.return_value = mock_history_data
@@ -498,11 +541,13 @@ class TestIgnoreCacheFunctionality:
         """Test that ignore_cache=False (default) uses cached data."""
         monitor = PriceMonitor(cache_dir=temp_cache_dir)
 
-        # Pre-populate cache
+        # Pre-populate cache (dual price format)
         test_date = date(2023, 12, 1)
         cached_price = 150.25
 
-        cached_data = pd.DataFrame({"Date": [test_date], "Close": [cached_price]})
+        cached_data = pd.DataFrame(
+            {"Date": [test_date], "Close": [cached_price], "Adj Close": [cached_price - 1.0]}
+        )
         monitor._save_cached_data("SPY", cached_data)
 
         # Mock API (should not be called)
@@ -533,7 +578,8 @@ class TestIgnoreCacheFunctionality:
         mock_yf = Mock()
         mock_stock = Mock()
         mock_history_data = pd.DataFrame(
-            {"Close": [api_price]}, index=pd.date_range(test_date, periods=1)
+            {"Close": [api_price], "Adj Close": [api_price - 1.0]},
+            index=pd.date_range(test_date, periods=1),
         )
 
         mock_stock.history.return_value = mock_history_data

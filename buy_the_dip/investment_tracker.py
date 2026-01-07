@@ -93,13 +93,13 @@ class InvestmentTracker:
 
     def calculate_portfolio_metrics(self, current_price: float) -> PortfolioMetrics:
         """
-        Calculate portfolio performance metrics.
+        Calculate portfolio performance metrics using Close prices (price-only return).
 
         Args:
-            current_price: Current price per share
+            current_price: Current Close price per share
 
         Returns:
-            Portfolio metrics
+            Portfolio metrics using Close prices
         """
         if not self._investments:
             return PortfolioMetrics(
@@ -113,6 +113,41 @@ class InvestmentTracker:
         total_invested = sum(inv.amount for inv in self._investments)
         total_shares = sum(inv.shares for inv in self._investments)
         current_value = total_shares * current_price
+        total_return = current_value - total_invested
+        percentage_return = (total_return / total_invested) if total_invested > 0 else 0.0
+
+        return PortfolioMetrics(
+            total_invested=total_invested,
+            total_shares=total_shares,
+            current_value=current_value,
+            total_return=total_return,
+            percentage_return=percentage_return,
+        )
+
+    def calculate_portfolio_metrics_adjusted(
+        self, current_adjusted_price: float
+    ) -> PortfolioMetrics:
+        """
+        Calculate portfolio performance metrics using Adjusted Close prices (total return including dividends).
+
+        Args:
+            current_adjusted_price: Current Adjusted Close price per share
+
+        Returns:
+            Portfolio metrics using Adjusted Close prices
+        """
+        if not self._investments:
+            return PortfolioMetrics(
+                total_invested=0.0,
+                total_shares=0.0,
+                current_value=0.0,
+                total_return=0.0,
+                percentage_return=0.0,
+            )
+
+        total_invested = sum(inv.amount for inv in self._investments)
+        total_shares = sum(inv.shares for inv in self._investments)
+        current_value = total_shares * current_adjusted_price
         total_return = current_value - total_invested
         percentage_return = (total_return / total_invested) if total_invested > 0 else 0.0
 

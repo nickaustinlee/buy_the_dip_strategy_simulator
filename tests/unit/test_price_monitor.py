@@ -92,7 +92,13 @@ class TestPriceMonitor:
         monitor = PriceMonitor(cache_dir=temp_cache_dir)
 
         # Create sample data
-        data = pd.DataFrame({"Date": [date(2023, 1, 1), date(2023, 1, 2)], "Close": [100.0, 105.0]})
+        data = pd.DataFrame(
+            {
+                "Date": [date(2023, 1, 1), date(2023, 1, 2)],
+                "Close": [100.0, 105.0],
+                "Adj Close": [98.0, 103.0],
+            }
+        )
 
         # Update cache
         monitor.update_cache("SPY", data)
@@ -116,6 +122,7 @@ class TestPriceMonitor:
             {
                 "Date": [date(2023, 1, 1), date(2023, 1, 2), date(2023, 1, 3)],
                 "Close": [100.0, 105.0, 102.0],
+                "Adj Close": [98.0, 103.0, 100.0],
             }
         )
 
@@ -140,7 +147,13 @@ class TestPriceMonitor:
         assert info["records"] == 0
 
         # Add some cached data
-        data = pd.DataFrame({"Date": [date(2023, 1, 1), date(2023, 1, 2)], "Close": [100.0, 105.0]})
+        data = pd.DataFrame(
+            {
+                "Date": [date(2023, 1, 1), date(2023, 1, 2)],
+                "Close": [100.0, 105.0],
+                "Adj Close": [98.0, 103.0],
+            }
+        )
         monitor.update_cache("SPY", data)
 
         # Test with cached data
@@ -155,7 +168,7 @@ class TestPriceMonitor:
         monitor = PriceMonitor(cache_dir=temp_cache_dir)
 
         # Add some cached data
-        data = pd.DataFrame({"Date": [date(2023, 1, 1)], "Close": [100.0]})
+        data = pd.DataFrame({"Date": [date(2023, 1, 1)], "Close": [100.0], "Adj Close": [98.0]})
         monitor.update_cache("SPY", data)
         monitor.update_cache("AAPL", data)
 
@@ -176,7 +189,8 @@ class TestPriceMonitor:
         mock_yf = Mock()
         mock_stock = Mock()
         mock_history_data = pd.DataFrame(
-            {"Close": [100.0, 105.0, 102.0]}, index=pd.date_range("2023-01-01", periods=3)
+            {"Close": [100.0, 105.0, 102.0], "Adj Close": [98.0, 103.0, 100.0]},
+            index=pd.date_range("2023-01-01", periods=3),
         )
 
         mock_stock.history.return_value = mock_history_data
@@ -190,11 +204,270 @@ class TestPriceMonitor:
         assert len(result) == 3
         assert "Date" in result.columns
         assert "Close" in result.columns
+        assert "Adj Close" in result.columns
         assert result["Close"].tolist() == [100.0, 105.0, 102.0]
+        assert result["Adj Close"].tolist() == [98.0, 103.0, 100.0]
 
         # Verify data was cached
         cache_info = monitor.get_cache_info("SPY")
         assert cache_info["cached"] is True
+
+    def test_dual_price_fetching_basic(self, temp_cache_dir):
+        """
+        Test that both Close and Adj Close prices are fetched and cached.
+        **Validates: Requirements 1.1, 1.2**
+        """
+        monitor = PriceMonitor(cache_dir=temp_cache_dir)
+
+        # Mock yfinance to return dual price data
+        mock_yf = Mock()
+        mock_stock = Mock()
+        mock_history_data = pd.DataFrame(
+            {"Close": [150.25, 151.50, 149.75], "Adj Close": [148.50, 149.75, 147.95]},
+            index=pd.date_range("2023-01-01", periods=3),
+        )
+
+        mock_stock.history.return_value = mock_history_data
+        mock_yf.Ticker.return_value = mock_stock
+        monitor._get_yfinance = Mock(return_value=mock_yf)
+
+        # Test dual price fetching
+        result = monitor.fetch_price_data("AAPL", date(2023, 1, 1), date(2023, 1, 3))
+
+        # Verify API was called with auto_adjust=False
+        mock_stock.history.assert_called_with(
+            start=date(2023, 1, 1), end=date(2023, 1, 4), auto_adjust=False  # end_date + 1 day
+        )
+
+        # Verify both price columns are present
+        assert "Close" in result.columns, "Close column should be present"
+        assert "Adj Close" in result.columns, "Adj Close column should be present"
+        assert len(result) == 3, "Should have 3 rows of data"
+
+        # Verify Close prices
+        expected_close = [150.25, 151.50, 149.75]
+        assert (
+            result["Close"].tolist() == expected_close
+        ), f"Close prices should match: expected {expected_close}, got {result['Close'].tolist()}"
+
+        # Verify Adj Close prices
+        expected_adj_close = [148.50, 149.75, 147.95]
+        assert (
+            result["Adj Close"].tolist() == expected_adj_close
+        ), f"Adj Close prices should match: expected {expected_adj_close}, got {result['Adj Close'].tolist()}"
+
+        # Verify data structure
+        assert "Date" in result.columns, "Date column should be present"
+        assert len(result.columns) == 3, "Should have exactly 3 columns: Date, Close, Adj Close"
+
+    def test_dual_price_caching_persistence(self, temp_cache_dir):
+        """
+        Test that both Close and Adj Close prices are properly cached and persist.
+        **Validates: Requirements 1.2**
+        """
+        monitor = PriceMonitor(cache_dir=temp_cache_dir)
+
+        # Create test data with both price types
+        test_data = pd.DataFrame(
+            {
+                "Date": [date(2023, 1, 1), date(2023, 1, 2), date(2023, 1, 3)],
+                "Close": [100.0, 102.5, 101.25],
+                "Adj Close": [98.5, 101.0, 99.75],
+            }
+        )
+
+        # Save to cache
+        monitor._save_cached_data("TEST", test_data)
+
+        # Load from cache using the same monitor instance
+        cached_data = monitor._load_cached_data("TEST")
+
+        # Verify both price columns are cached
+        assert cached_data is not None, "Cached data should not be None"
+        assert "Close" in cached_data.columns, "Close column should be cached"
+        assert "Adj Close" in cached_data.columns, "Adj Close column should be cached"
+
+        # Verify data integrity
+        pd.testing.assert_frame_equal(
+            test_data, cached_data, "Cached data should match original data"
+        )
+
+        # Test cache persistence across monitor instances (no legacy clearing now)
+        new_monitor = PriceMonitor(cache_dir=temp_cache_dir)
+        reloaded_data = new_monitor._load_cached_data("TEST")
+
+        assert reloaded_data is not None, "Reloaded data should not be None"
+        assert "Close" in reloaded_data.columns, "Close column should persist"
+        assert "Adj Close" in reloaded_data.columns, "Adj Close column should persist"
+        pd.testing.assert_frame_equal(
+            test_data, reloaded_data, "Reloaded data should match original data"
+        )
+
+        # Verify cache file format
+        cache_file = monitor._get_cache_file_path("TEST")
+        assert cache_file.exists(), "Cache file should exist"
+
+        # Read cache file directly to verify dual price format
+        import json
+
+        with open(cache_file, "r") as f:
+            cache_content = json.load(f)
+
+        assert "format_version" in cache_content, "Cache should have format version"
+        assert cache_content["format_version"] == "2.0", "Cache should be dual price format"
+        assert "prices" in cache_content, "Cache should have prices data"
+
+        # Verify both price columns are in the cached JSON
+        first_price_record = cache_content["prices"][0]
+        assert "Close" in first_price_record, "Cache should contain Close prices"
+        assert "Adj Close" in first_price_record, "Cache should contain Adj Close prices"
+
+    def test_dual_price_cache_merging(self, temp_cache_dir):
+        """
+        Test that cache merging works correctly with both price columns.
+        **Validates: Requirements 1.4**
+        """
+        monitor = PriceMonitor(cache_dir=temp_cache_dir)
+
+        # Create initial cached data
+        cached_data = pd.DataFrame(
+            {
+                "Date": [date(2023, 1, 1), date(2023, 1, 2)],
+                "Close": [100.0, 102.0],
+                "Adj Close": [98.0, 100.0],
+            }
+        )
+
+        # Create new data to merge
+        new_data = pd.DataFrame(
+            {
+                "Date": [date(2023, 1, 3), date(2023, 1, 4)],
+                "Close": [104.0, 103.5],
+                "Adj Close": [102.0, 101.5],
+            }
+        )
+
+        # Test merging
+        merged_data = monitor._merge_cached_and_new_data(cached_data, new_data)
+
+        # Verify merged data has both price columns
+        assert "Close" in merged_data.columns, "Merged data should have Close column"
+        assert "Adj Close" in merged_data.columns, "Merged data should have Adj Close column"
+        assert len(merged_data) == 4, "Merged data should have 4 rows"
+
+        # Verify data integrity
+        expected_close = [100.0, 102.0, 104.0, 103.5]
+        expected_adj_close = [98.0, 100.0, 102.0, 101.5]
+        assert (
+            merged_data["Close"].tolist() == expected_close
+        ), "Close prices should be merged correctly"
+        assert (
+            merged_data["Adj Close"].tolist() == expected_adj_close
+        ), "Adj Close prices should be merged correctly"
+
+        # Verify chronological order
+        dates = merged_data["Date"].tolist()
+        assert dates == sorted(dates), "Merged data should be in chronological order"
+
+    def test_dual_price_api_call_structure(self, temp_cache_dir):
+        """
+        Test that API calls request both Close and Adj Close columns.
+        **Validates: Requirements 1.1**
+        """
+        monitor = PriceMonitor(cache_dir=temp_cache_dir)
+
+        # Mock yfinance
+        mock_yf = Mock()
+        mock_stock = Mock()
+
+        # Create mock data with both columns
+        mock_history_data = pd.DataFrame(
+            {
+                "Open": [99.0, 100.0, 101.0],
+                "High": [101.0, 102.0, 103.0],
+                "Low": [98.0, 99.0, 100.0],
+                "Close": [100.0, 101.0, 102.0],
+                "Adj Close": [98.5, 99.5, 100.5],
+                "Volume": [1000000, 1100000, 1200000],
+            },
+            index=pd.date_range("2023-01-01", periods=3),
+        )
+
+        mock_stock.history.return_value = mock_history_data
+        mock_yf.Ticker.return_value = mock_stock
+        monitor._get_yfinance = Mock(return_value=mock_yf)
+
+        # Fetch data
+        result = monitor.fetch_price_data("SPY", date(2023, 1, 1), date(2023, 1, 3))
+
+        # Verify API was called with auto_adjust=False
+        mock_stock.history.assert_called_with(
+            start=date(2023, 1, 1), end=date(2023, 1, 4), auto_adjust=False  # end_date + 1 day
+        )
+
+        # Verify result contains only the dual price columns we need
+        assert set(result.columns) == {
+            "Date",
+            "Close",
+            "Adj Close",
+        }, "Result should contain only Date, Close, and Adj Close columns"
+
+        # Verify both price columns have correct data
+        assert result["Close"].tolist() == [
+            100.0,
+            101.0,
+            102.0,
+        ], "Close prices should be extracted correctly"
+        assert result["Adj Close"].tolist() == [
+            98.5,
+            99.5,
+            100.5,
+        ], "Adj Close prices should be extracted correctly"
+
+    def test_auto_adjust_false_parameter(self, temp_cache_dir):
+        """
+        Test that yfinance is called with auto_adjust=False to ensure we get both raw Close and Adj Close.
+        **Validates: Requirements 1.1**
+        """
+        monitor = PriceMonitor(cache_dir=temp_cache_dir)
+
+        # Mock yfinance with realistic data showing difference between Close and Adj Close
+        mock_yf = Mock()
+        mock_stock = Mock()
+        # Simulate a stock that had dividends - Adj Close should be lower than Close
+        mock_history_data = pd.DataFrame(
+            {
+                "Open": [100.0, 101.0],
+                "High": [102.0, 103.0],
+                "Low": [99.0, 100.0],
+                "Close": [101.0, 102.0],  # Raw closing prices
+                "Adj Close": [99.5, 100.5],  # Adjusted for dividends (lower)
+                "Volume": [1000000, 1100000],
+            },
+            index=pd.date_range("2023-01-01", periods=2),
+        )
+
+        mock_stock.history.return_value = mock_history_data
+        mock_yf.Ticker.return_value = mock_stock
+        monitor._get_yfinance = Mock(return_value=mock_yf)
+
+        # Fetch data
+        result = monitor.fetch_price_data("DIVIDEND_STOCK", date(2023, 1, 1), date(2023, 1, 2))
+
+        # Verify auto_adjust=False was used
+        mock_stock.history.assert_called_with(
+            start=date(2023, 1, 1), end=date(2023, 1, 3), auto_adjust=False
+        )
+
+        # Verify we get distinct Close and Adj Close values
+        assert result["Close"].tolist() == [101.0, 102.0], "Should get raw Close prices"
+        assert result["Adj Close"].tolist() == [99.5, 100.5], "Should get dividend-adjusted prices"
+
+        # Verify Close > Adj Close (typical for dividend-paying stocks)
+        for i in range(len(result)):
+            assert (
+                result["Close"].iloc[i] >= result["Adj Close"].iloc[i]
+            ), f"Close price should be >= Adj Close price at index {i}"
 
     def test_fetch_price_data_with_cache(self, temp_cache_dir):
         """Test fetching price data when some data is already cached."""
@@ -202,7 +475,11 @@ class TestPriceMonitor:
 
         # Pre-populate cache with some data
         cached_data = pd.DataFrame(
-            {"Date": [date(2023, 1, 1), date(2023, 1, 2)], "Close": [100.0, 105.0]}
+            {
+                "Date": [date(2023, 1, 1), date(2023, 1, 2)],
+                "Close": [100.0, 105.0],
+                "Adj Close": [98.0, 103.0],
+            }
         )
         monitor.update_cache("SPY", cached_data)
 
@@ -210,7 +487,7 @@ class TestPriceMonitor:
         mock_yf = Mock()
         mock_stock = Mock()
         mock_history_data = pd.DataFrame(
-            {"Close": [102.0]}, index=pd.date_range("2023-01-03", periods=1)
+            {"Close": [102.0], "Adj Close": [100.0]}, index=pd.date_range("2023-01-03", periods=1)
         )
 
         mock_stock.history.return_value = mock_history_data
@@ -223,6 +500,7 @@ class TestPriceMonitor:
         # Should return all three days
         assert len(result) == 3
         assert result["Close"].tolist() == [100.0, 105.0, 102.0]
+        assert result["Adj Close"].tolist() == [98.0, 103.0, 100.0]
 
     def test_fetch_price_data_empty_response(self, temp_cache_dir):
         """Test handling of empty price data response."""
@@ -262,7 +540,7 @@ class TestPriceMonitor:
         mock_yf = Mock()
         mock_stock = Mock()
         mock_history_data = pd.DataFrame(
-            {"Close": [150.25]}, index=pd.date_range("2023-01-01", periods=1)
+            {"Close": [150.25], "Adj Close": [148.50]}, index=pd.date_range("2023-01-01", periods=1)
         )
 
         mock_stock.history.return_value = mock_history_data
@@ -272,6 +550,9 @@ class TestPriceMonitor:
         # Test current price
         current_price = monitor.get_current_price("SPY")
 
+        # Verify auto_adjust=False was used
+        mock_stock.history.assert_called_with(period="1d", auto_adjust=False)
+
         assert current_price == 150.25
 
     def test_get_current_price_from_cache(self, temp_cache_dir):
@@ -279,7 +560,9 @@ class TestPriceMonitor:
         monitor = PriceMonitor(cache_dir=temp_cache_dir)
 
         # Add recent data to cache
-        recent_data = pd.DataFrame({"Date": [date.today()], "Close": [145.50]})
+        recent_data = pd.DataFrame(
+            {"Date": [date.today()], "Close": [145.50], "Adj Close": [143.25]}
+        )
         monitor.update_cache("SPY", recent_data)
 
         # Should return cached price without API call
@@ -320,7 +603,8 @@ class TestPriceMonitor:
         mock_yf = Mock()
         mock_stock = Mock()
         mock_history_data = pd.DataFrame(
-            {"Close": [100.0, 105.0, 102.0]}, index=pd.date_range("2023-01-01", periods=3)
+            {"Close": [100.0, 105.0, 102.0], "Adj Close": [98.0, 103.0, 100.0]},
+            index=pd.date_range("2023-01-01", periods=3),
         )
 
         mock_stock.history.return_value = mock_history_data
@@ -354,6 +638,116 @@ class TestPriceMonitor:
         assert isinstance(result, pd.Series)
         assert result.empty
 
+    def test_get_adjusted_closing_prices_success(self, temp_cache_dir):
+        """
+        Test successful adjusted closing prices retrieval as Series.
+        **Validates: Requirements 4.1, 4.3**
+        """
+        monitor = PriceMonitor(cache_dir=temp_cache_dir)
+
+        # Mock the _get_yfinance method
+        mock_yf = Mock()
+        mock_stock = Mock()
+        mock_history_data = pd.DataFrame(
+            {"Close": [100.0, 105.0, 102.0], "Adj Close": [98.0, 103.0, 100.0]},
+            index=pd.date_range("2023-01-01", periods=3),
+        )
+
+        mock_stock.history.return_value = mock_history_data
+        mock_yf.Ticker.return_value = mock_stock
+        monitor._get_yfinance = Mock(return_value=mock_yf)
+
+        # Test get_adjusted_closing_prices
+        result = monitor.get_adjusted_closing_prices("SPY", date(2023, 1, 1), date(2023, 1, 3))
+
+        # Verify result is a Series
+        assert isinstance(result, pd.Series)
+        assert len(result) == 3
+        assert result.name == "Adj Close"
+        assert result.tolist() == [98.0, 103.0, 100.0]
+
+        # Verify the method returns Adj Close, not Close prices
+        close_result = monitor.get_closing_prices("SPY", date(2023, 1, 1), date(2023, 1, 3))
+        assert not result.equals(close_result), "Adjusted prices should differ from Close prices"
+
+    def test_get_adjusted_closing_prices_empty(self, temp_cache_dir):
+        """
+        Test adjusted closing prices retrieval with no data.
+        **Validates: Requirements 4.1, 4.3**
+        """
+        monitor = PriceMonitor(cache_dir=temp_cache_dir)
+
+        # Mock empty response
+        mock_yf = Mock()
+        mock_stock = Mock()
+        mock_stock.history.return_value = pd.DataFrame()
+        mock_yf.Ticker.return_value = mock_stock
+        monitor._get_yfinance = Mock(return_value=mock_yf)
+
+        # Test get_adjusted_closing_prices
+        result = monitor.get_adjusted_closing_prices("INVALID", date(2023, 1, 1), date(2023, 1, 3))
+
+        # Should return empty Series
+        assert isinstance(result, pd.Series)
+        assert result.empty
+
+    def test_adjusted_vs_close_prices_distinction(self, temp_cache_dir):
+        """
+        Test that adjusted closing prices method returns different values than regular closing prices.
+        **Validates: Requirements 4.1, 4.3**
+        """
+        monitor = PriceMonitor(cache_dir=temp_cache_dir)
+
+        # Mock data where Adj Close differs from Close (typical for dividend-paying stocks)
+        mock_yf = Mock()
+        mock_stock = Mock()
+        mock_history_data = pd.DataFrame(
+            {
+                "Close": [150.0, 152.0, 151.0],  # Raw closing prices
+                "Adj Close": [147.5, 149.5, 148.5],  # Dividend-adjusted prices (lower)
+            },
+            index=pd.date_range("2023-01-01", periods=3),
+        )
+
+        mock_stock.history.return_value = mock_history_data
+        mock_yf.Ticker.return_value = mock_stock
+        monitor._get_yfinance = Mock(return_value=mock_yf)
+
+        # Get both price types
+        close_prices = monitor.get_closing_prices(
+            "DIVIDEND_STOCK", date(2023, 1, 1), date(2023, 1, 3)
+        )
+        adj_close_prices = monitor.get_adjusted_closing_prices(
+            "DIVIDEND_STOCK", date(2023, 1, 1), date(2023, 1, 3)
+        )
+
+        # Verify they are different Series
+        assert not close_prices.equals(adj_close_prices), "Close and Adj Close should be different"
+
+        # Verify correct values
+        assert close_prices.tolist() == [
+            150.0,
+            152.0,
+            151.0,
+        ], "Close prices should match raw closing prices"
+        assert adj_close_prices.tolist() == [
+            147.5,
+            149.5,
+            148.5,
+        ], "Adj Close prices should match adjusted closing prices"
+
+        # Verify series names
+        assert close_prices.name == "Close", "Close prices series should be named 'Close'"
+        assert (
+            adj_close_prices.name == "Adj Close"
+        ), "Adj Close prices series should be named 'Adj Close'"
+
+        # Verify Adj Close <= Close (typical relationship)
+        for i in range(len(close_prices)):
+            assert (
+                adj_close_prices.iloc[i] <= close_prices.iloc[i]
+            ), f"Adj Close should be <= Close at index {i}"
+
     def test_get_latest_closing_price(self, temp_cache_dir):
         """Test latest closing price retrieval."""
         monitor = PriceMonitor(cache_dir=temp_cache_dir)
@@ -362,7 +756,7 @@ class TestPriceMonitor:
         mock_yf = Mock()
         mock_stock = Mock()
         mock_history_data = pd.DataFrame(
-            {"Close": [150.25]}, index=pd.date_range("2023-01-01", periods=1)
+            {"Close": [150.25], "Adj Close": [148.50]}, index=pd.date_range("2023-01-01", periods=1)
         )
 
         mock_stock.history.return_value = mock_history_data
@@ -402,7 +796,9 @@ class TestPriceMonitor:
         assert not monitor.is_cache_valid("SPY")
 
         # Add recent data to cache
-        recent_data = pd.DataFrame({"Date": [date.today()], "Close": [145.50]})
+        recent_data = pd.DataFrame(
+            {"Date": [date.today()], "Close": [145.50], "Adj Close": [143.25]}
+        )
         monitor.update_cache("SPY", recent_data)
 
         # Should be valid with default cache days (30)
@@ -410,7 +806,9 @@ class TestPriceMonitor:
         assert monitor.is_cache_valid("SPY", cache_days=30)
 
         # Add old data to cache
-        old_data = pd.DataFrame({"Date": [date.today() - timedelta(days=35)], "Close": [140.00]})
+        old_data = pd.DataFrame(
+            {"Date": [date.today() - timedelta(days=35)], "Close": [140.00], "Adj Close": [138.00]}
+        )
         monitor.update_cache("OLD", old_data)
 
         # Should not be valid with default cache days
@@ -529,7 +927,7 @@ class TestPriceMonitorErrorHandling:
         mock_yf = Mock()
         mock_stock = Mock()
         partial_data = pd.DataFrame(
-            {"Close": [100.0]}, index=pd.date_range("2023-01-02", periods=1)
+            {"Close": [100.0], "Adj Close": [98.0]}, index=pd.date_range("2023-01-02", periods=1)
         )
         mock_stock.history.return_value = partial_data
         mock_yf.Ticker.return_value = mock_stock
@@ -539,6 +937,7 @@ class TestPriceMonitorErrorHandling:
         result = monitor.fetch_price_data("SPY", date(2023, 1, 1), date(2023, 1, 3))
         assert len(result) == 1
         assert result["Close"].iloc[0] == 100.0
+        assert result["Adj Close"].iloc[0] == 98.0
         assert result["Date"].iloc[0] == date(2023, 1, 2)
 
     def test_yfinance_import_error(self, temp_cache_dir):

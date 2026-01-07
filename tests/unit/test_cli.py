@@ -323,7 +323,7 @@ class TestResultFormatting:
 
         # Check key information is present
         assert "SPY" in formatted
-        assert "Current Price: $550.00" in formatted
+        assert "Current Price (Close): $550.00" in formatted  # Updated for dual price system
         assert "Total Invested: $2,000.00" in formatted
         assert "12.50%" in formatted  # Percentage return
         assert "2024-06-15" in formatted  # Recent investment

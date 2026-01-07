@@ -161,6 +161,7 @@ class PriceMonitor:
             cache_data = {
                 "ticker": ticker.upper(),
                 "last_updated": datetime.now().isoformat(),
+                "format_version": "2.0",  # Mark as dual price format
                 "prices": data.to_dict("records"),
             }
 
@@ -307,12 +308,14 @@ class PriceMonitor:
                 self._api_calls_made += 1
                 yf = self._get_yfinance()
                 stock = yf.Ticker(ticker)
-                data = stock.history(start=range_start, end=range_end + timedelta(days=1))
+                data = stock.history(
+                    start=range_start, end=range_end + timedelta(days=1), auto_adjust=False
+                )
 
                 if not data.empty:
-                    # Keep only the Close column and reset index to have Date as a column
-                    range_data = data[["Close"]].reset_index()
-                    range_data.columns = ["Date", "Close"]
+                    # Keep both Close and Adj Close columns and reset index to have Date as a column
+                    range_data = data[["Close", "Adj Close"]].reset_index()
+                    range_data.columns = ["Date", "Close", "Adj Close"]
                     range_data_copy = range_data.copy()
                     range_data_copy["Date"] = range_data_copy["Date"].dt.date  # type: ignore[index]
 
@@ -374,12 +377,14 @@ class PriceMonitor:
             self._api_calls_made += 1
             yf = self._get_yfinance()
             stock = yf.Ticker(ticker)
-            data = stock.history(start=start_date, end=end_date + timedelta(days=1))
+            data = stock.history(
+                start=start_date, end=end_date + timedelta(days=1), auto_adjust=False
+            )
 
             if not data.empty:
-                # Keep only the Close column and reset index to have Date as a column
-                fresh_data = data[["Close"]].reset_index()
-                fresh_data.columns = ["Date", "Close"]
+                # Keep both Close and Adj Close columns and reset index to have Date as a column
+                fresh_data = data[["Close", "Adj Close"]].reset_index()
+                fresh_data.columns = ["Date", "Close", "Adj Close"]
                 fresh_data_copy = fresh_data.copy()
                 fresh_data_copy["Date"] = fresh_data_copy["Date"].dt.date  # type: ignore[index]
 
@@ -413,6 +418,30 @@ class PriceMonitor:
 
         # Convert to Series with Date as index
         series = pd.Series(data["Close"].values, index=data["Date"], name="Close")
+        return series
+
+    def get_adjusted_closing_prices(
+        self, ticker: str, start_date: date, end_date: date
+    ) -> pd.Series:
+        """
+        Get adjusted closing prices for a ticker within the specified date range.
+        Returns a pandas Series with dates as index and adjusted closing prices as values.
+        Adjusted prices account for dividends, splits, and other corporate actions.
+
+        Args:
+            ticker: Stock ticker symbol
+            start_date: Start date for data retrieval
+            end_date: End date for data retrieval
+
+        Returns:
+            Series with adjusted closing prices indexed by date
+        """
+        data = self.fetch_price_data(ticker, start_date, end_date)
+        if data.empty:
+            return pd.Series(dtype=float)
+
+        # Convert to Series with Date as index
+        series = pd.Series(data["Adj Close"].values, index=data["Date"], name="Adj Close")
         return series
 
     def is_cache_valid(self, ticker: str, cache_days: int = 30) -> bool:
@@ -511,7 +540,7 @@ class PriceMonitor:
             yf = self._get_yfinance()
             stock = yf.Ticker(ticker)
             # Get the most recent trading day's data
-            data = stock.history(period="1d")
+            data = stock.history(period="1d", auto_adjust=False)
 
             if data.empty:
                 # Check if today is a non-trading day
@@ -535,7 +564,13 @@ class PriceMonitor:
 
             # Update cache with current data
             current_date = data.index[-1].date()
-            new_record = pd.DataFrame({"Date": [current_date], "Close": [current_price]})
+            new_record = pd.DataFrame(
+                {
+                    "Date": [current_date],
+                    "Close": [current_price],
+                    "Adj Close": [float(data["Adj Close"].iloc[-1])],
+                }
+            )
 
             if cached_data is None:
                 cached_data = pd.DataFrame()

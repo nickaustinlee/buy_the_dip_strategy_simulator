@@ -371,3 +371,194 @@ class TestInvestmentTrackerErrorHandling:
         assert abs(metrics.current_value - 0.11) < 0.001  # 0.0001 * 1100
         assert abs(metrics.total_return - 0.01) < 0.001  # 0.11 - 0.10
         assert abs(metrics.percentage_return - 0.10) < 0.001  # 10% return as decimal
+
+
+class TestDualPricePerformanceCalculations:
+    """Test dual price performance calculation functionality."""
+
+    @pytest.fixture
+    def temp_data_dir(self):
+        """Create a temporary data directory for testing."""
+        temp_dir = tempfile.mkdtemp()
+        yield temp_dir
+        shutil.rmtree(temp_dir)
+
+    @pytest.fixture
+    def sample_investments(self):
+        """Create sample investments for testing."""
+        return [
+            Investment(
+                date=date(2025, 3, 14), ticker="SPY", price=562.81, amount=2000.0, shares=3.5536
+            ),
+            Investment(
+                date=date(2025, 4, 11), ticker="SPY", price=533.94, amount=2000.0, shares=3.7457
+            ),
+        ]
+
+    def test_price_return_uses_close_prices(self, temp_data_dir, sample_investments):
+        """Test that price return calculation uses Close prices."""
+        tracker = InvestmentTracker(data_dir=temp_data_dir)
+
+        for investment in sample_investments:
+            tracker.add_investment(investment)
+
+        current_close_price = 692.00
+
+        # Calculate metrics using Close prices (price-only return)
+        metrics = tracker.calculate_portfolio_metrics(current_close_price)
+
+        # Verify calculations
+        expected_total_invested = 4000.0
+        expected_total_shares = 7.2993
+        expected_current_value = expected_total_shares * current_close_price
+        expected_total_return = expected_current_value - expected_total_invested
+        expected_percentage_return = expected_total_return / expected_total_invested
+
+        assert abs(metrics.total_invested - expected_total_invested) < 0.01
+        assert abs(metrics.total_shares - expected_total_shares) < 0.0001
+        assert abs(metrics.current_value - expected_current_value) < 0.01
+        assert abs(metrics.total_return - expected_total_return) < 0.01
+        assert abs(metrics.percentage_return - expected_percentage_return) < 0.0001
+
+    def test_total_return_uses_adjusted_close_prices(self, temp_data_dir, sample_investments):
+        """Test that total return calculation uses Adjusted Close prices."""
+        tracker = InvestmentTracker(data_dir=temp_data_dir)
+
+        for investment in sample_investments:
+            tracker.add_investment(investment)
+
+        current_adj_price = 695.50  # Slightly higher than Close due to dividends
+
+        # Calculate metrics using Adjusted Close prices (total return including dividends)
+        metrics = tracker.calculate_portfolio_metrics_adjusted(current_adj_price)
+
+        # Verify calculations
+        expected_total_invested = 4000.0
+        expected_total_shares = 7.2993
+        expected_current_value = expected_total_shares * current_adj_price
+        expected_total_return = expected_current_value - expected_total_invested
+        expected_percentage_return = expected_total_return / expected_total_invested
+
+        assert abs(metrics.total_invested - expected_total_invested) < 0.01
+        assert abs(metrics.total_shares - expected_total_shares) < 0.0001
+        assert abs(metrics.current_value - expected_current_value) < 0.01
+        assert abs(metrics.total_return - expected_total_return) < 0.01
+        assert abs(metrics.percentage_return - expected_percentage_return) < 0.0001
+
+    def test_dual_price_methods_return_different_results(self, temp_data_dir, sample_investments):
+        """Test that Close and Adjusted Close methods return different results when prices differ."""
+        tracker = InvestmentTracker(data_dir=temp_data_dir)
+
+        for investment in sample_investments:
+            tracker.add_investment(investment)
+
+        current_close_price = 692.00
+        current_adj_price = 695.50  # Higher due to dividends
+
+        # Calculate metrics using both methods
+        close_metrics = tracker.calculate_portfolio_metrics(current_close_price)
+        adj_metrics = tracker.calculate_portfolio_metrics_adjusted(current_adj_price)
+
+        # Both should have same invested amount and shares
+        assert close_metrics.total_invested == adj_metrics.total_invested
+        assert close_metrics.total_shares == adj_metrics.total_shares
+
+        # But different current values and returns due to price difference
+        assert adj_metrics.current_value > close_metrics.current_value
+        assert adj_metrics.total_return > close_metrics.total_return
+        assert adj_metrics.percentage_return > close_metrics.percentage_return
+
+        # Verify the dividend effect
+        dividend_effect = adj_metrics.total_return - close_metrics.total_return
+        expected_dividend_effect = adj_metrics.total_shares * (
+            current_adj_price - current_close_price
+        )
+        assert abs(dividend_effect - expected_dividend_effect) < 0.01
+
+    def test_dual_price_methods_same_when_prices_equal(self, temp_data_dir, sample_investments):
+        """Test that both methods return identical results when Close and Adj Close prices are equal."""
+        tracker = InvestmentTracker(data_dir=temp_data_dir)
+
+        for investment in sample_investments:
+            tracker.add_investment(investment)
+
+        current_price = 692.00  # Same price for both
+
+        # Calculate metrics using both methods
+        close_metrics = tracker.calculate_portfolio_metrics(current_price)
+        adj_metrics = tracker.calculate_portfolio_metrics_adjusted(current_price)
+
+        # All values should be identical
+        assert close_metrics.total_invested == adj_metrics.total_invested
+        assert close_metrics.total_shares == adj_metrics.total_shares
+        assert close_metrics.current_value == adj_metrics.current_value
+        assert close_metrics.total_return == adj_metrics.total_return
+        assert close_metrics.percentage_return == adj_metrics.percentage_return
+
+    def test_dual_price_methods_with_empty_portfolio(self, temp_data_dir):
+        """Test that both methods handle empty portfolios correctly."""
+        tracker = InvestmentTracker(data_dir=temp_data_dir)
+
+        current_close_price = 692.00
+        current_adj_price = 695.50
+
+        # Calculate metrics using both methods
+        close_metrics = tracker.calculate_portfolio_metrics(current_close_price)
+        adj_metrics = tracker.calculate_portfolio_metrics_adjusted(current_adj_price)
+
+        # Both should return zero values for empty portfolio
+        assert close_metrics.total_invested == 0.0
+        assert close_metrics.total_shares == 0.0
+        assert close_metrics.current_value == 0.0
+        assert close_metrics.total_return == 0.0
+        assert close_metrics.percentage_return == 0.0
+
+        assert adj_metrics.total_invested == 0.0
+        assert adj_metrics.total_shares == 0.0
+        assert adj_metrics.current_value == 0.0
+        assert adj_metrics.total_return == 0.0
+        assert adj_metrics.percentage_return == 0.0
+
+    def test_dual_price_methods_preserve_mathematical_relationships(
+        self, temp_data_dir, sample_investments
+    ):
+        """Test that both methods preserve mathematical relationships in calculations."""
+        tracker = InvestmentTracker(data_dir=temp_data_dir)
+
+        for investment in sample_investments:
+            tracker.add_investment(investment)
+
+        current_close_price = 692.00
+        current_adj_price = 695.50
+
+        # Calculate metrics using both methods
+        close_metrics = tracker.calculate_portfolio_metrics(current_close_price)
+        adj_metrics = tracker.calculate_portfolio_metrics_adjusted(current_adj_price)
+
+        # Verify mathematical relationships for Close prices
+        assert (
+            abs(close_metrics.current_value - (close_metrics.total_shares * current_close_price))
+            < 0.01
+        )
+        assert (
+            abs(
+                close_metrics.total_return
+                - (close_metrics.current_value - close_metrics.total_invested)
+            )
+            < 0.01
+        )
+        if close_metrics.total_invested > 0:
+            expected_pct = close_metrics.total_return / close_metrics.total_invested
+            assert abs(close_metrics.percentage_return - expected_pct) < 0.0001
+
+        # Verify mathematical relationships for Adjusted Close prices
+        assert (
+            abs(adj_metrics.current_value - (adj_metrics.total_shares * current_adj_price)) < 0.01
+        )
+        assert (
+            abs(adj_metrics.total_return - (adj_metrics.current_value - adj_metrics.total_invested))
+            < 0.01
+        )
+        if adj_metrics.total_invested > 0:
+            expected_pct = adj_metrics.total_return / adj_metrics.total_invested
+            assert abs(adj_metrics.percentage_return - expected_pct) < 0.0001

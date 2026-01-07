@@ -54,7 +54,10 @@ class TestPriceCachingProperties:
 
             # Mock yfinance to return consistent data
             mock_data = pd.DataFrame(
-                {"Close": [450.0, 451.0, 452.0, 453.0, 454.0, 455.0]},
+                {
+                    "Close": [450.0, 451.0, 452.0, 453.0, 454.0, 455.0],
+                    "Adj Close": [448.0, 449.0, 450.0, 451.0, 452.0, 453.0],
+                },
                 index=pd.date_range(start=start_date, periods=6, freq="D"),
             )
 
@@ -104,7 +107,10 @@ class TestPriceCachingProperties:
 
             # Mock yfinance to return consistent data
             mock_data = pd.DataFrame(
-                {"Close": [350.0, 352.0, 348.0, 355.0, 360.0, 358.0, 362.0, 365.0]},
+                {
+                    "Close": [350.0, 352.0, 348.0, 355.0, 360.0, 358.0, 362.0, 365.0],
+                    "Adj Close": [348.0, 350.0, 346.0, 353.0, 358.0, 356.0, 360.0, 363.0],
+                },
                 index=pd.date_range(start=start_date, periods=8, freq="D"),
             )
 
@@ -175,8 +181,10 @@ class TestPriceCachingProperties:
 
                 dates = [start_dt + timedelta(days=i) for i in range(days_diff)]
                 mock_prices = [base_price + price_offset + (i * 0.1) for i in range(len(dates))]
+                mock_adj_prices = [p - 1.0 for p in mock_prices]  # Adj Close slightly lower
                 return pd.DataFrame(
-                    {"Close": mock_prices}, index=pd.DatetimeIndex([pd.Timestamp(d) for d in dates])
+                    {"Close": mock_prices, "Adj Close": mock_adj_prices},
+                    index=pd.DatetimeIndex([pd.Timestamp(d) for d in dates]),
                 )
 
             mock_data_first = create_mock_data(start_date_first, end_date_first)
@@ -253,7 +261,10 @@ class TestPriceCachingProperties:
             # Generate mock price data (simplified)
             dates = [start_date + timedelta(days=i) for i in range(num_days + 1)]
             mock_prices = [base_price + (i * 0.1) for i in range(len(dates))]
-            original_data = pd.DataFrame({"Date": dates, "Close": mock_prices})
+            mock_adj_prices = [p - 1.0 for p in mock_prices]  # Adj Close slightly lower
+            original_data = pd.DataFrame(
+                {"Date": dates, "Close": mock_prices, "Adj Close": mock_adj_prices}
+            )
 
             # Save data to persistent cache
             monitor._save_cached_data(ticker, original_data)
@@ -300,7 +311,7 @@ class TestPriceCachingProperties:
             data_age_days = 30
             old_date = date.today() - timedelta(days=data_age_days)
 
-            old_data = pd.DataFrame({"Date": [old_date], "Close": [100.0]})
+            old_data = pd.DataFrame({"Date": [old_date], "Close": [100.0], "Adj Close": [99.0]})
 
             # Save old data to cache
             monitor._save_cached_data(ticker, old_data)
@@ -318,7 +329,9 @@ class TestPriceCachingProperties:
                 assert not monitor.is_cache_valid(ticker, cache_days=cache_days_invalid)
 
             # Test with recent data
-            recent_data = pd.DataFrame({"Date": [date.today()], "Close": [105.0]})
+            recent_data = pd.DataFrame(
+                {"Date": [date.today()], "Close": [105.0], "Adj Close": [104.0]}
+            )
 
             monitor._save_cached_data(ticker + "_RECENT", recent_data)
 

@@ -396,21 +396,60 @@ def format_backtest_result(result: BacktestResult, config: Any, price_monitor: P
         )
     lines.append("")
 
-    # Portfolio metrics
+    # Portfolio metrics - now showing both price-only and total returns
     portfolio = result.final_portfolio
     lines.append("📊 PORTFOLIO PERFORMANCE")
     lines.append("-" * 30)
     lines.append(f"Total Invested: ${portfolio.total_invested:,.2f}")
     lines.append(f"Total Shares: {portfolio.total_shares:.4f}")
-    lines.append(f"Current Value: ${portfolio.current_value:,.2f}")
-    lines.append(f"Total Return: ${portfolio.total_return:,.2f}")
+    lines.append(f"Current Value (Close): ${portfolio.current_value:,.2f}")
+    lines.append(f"Price Return (Close): ${portfolio.total_return:,.2f}")
 
     if portfolio.total_invested > 0:
-        lines.append(f"Strategy Return: {portfolio.percentage_return:.2%}")
+        lines.append(f"Price Return %: {portfolio.percentage_return:.2%}")
     else:
-        lines.append("Strategy Return: N/A (no investments)")
+        lines.append("Price Return %: N/A (no investments)")
 
-    # Buy-and-hold comparison
+    # Calculate total return using Adjusted Close prices if investments exist
+    if result.all_investments:
+        try:
+            # Get current adjusted price for total return calculation
+            price_monitor_logger = logging.getLogger("buy_the_dip.price_monitor.price_monitor")
+            original_level = price_monitor_logger.level
+            price_monitor_logger.setLevel(logging.ERROR)
+
+            price_data = price_monitor.fetch_price_data(
+                config.ticker, result.start_date, result.end_date
+            )
+
+            price_monitor_logger.setLevel(original_level)
+
+            if not price_data.empty and "Adj Close" in price_data.columns:
+                current_adj_price = float(price_data.iloc[-1]["Adj Close"])
+
+                # Calculate total return using adjusted prices
+                current_adj_value = portfolio.total_shares * current_adj_price
+                total_return_adj = current_adj_value - portfolio.total_invested
+                total_return_pct_adj = (
+                    (total_return_adj / portfolio.total_invested)
+                    if portfolio.total_invested > 0
+                    else 0.0
+                )
+
+                lines.append(f"Current Value (Adj Close): ${current_adj_value:,.2f}")
+                lines.append(f"Total Return (Adj Close): ${total_return_adj:,.2f}")
+                lines.append(f"Total Return % (includes dividends): {total_return_pct_adj:.2%}")
+            else:
+                lines.append("Total Return (Adj Close): N/A (data unavailable)")
+
+        except Exception as e:
+            price_monitor_logger.setLevel(original_level)
+            logging.getLogger(__name__).warning(
+                f"Could not calculate total return with adjusted prices: {e}"
+            )
+            lines.append("Total Return (Adj Close): N/A (calculation failed)")
+
+    # Buy-and-hold comparison - now using adjusted prices for fair comparison
     if result.all_investments:
         try:
             # Get start and end prices for buy-and-hold comparison
@@ -432,18 +471,39 @@ def format_backtest_result(result: BacktestResult, config: Any, price_monitor: P
             )
 
             if not price_data.empty:
+                # Use Close prices for price-only comparison
                 start_price = float(price_data.iloc[0]["Close"])
                 end_price = float(price_data.iloc[-1]["Close"])
-                buyhold_return = (end_price - start_price) / start_price
+                buyhold_price_return = (end_price - start_price) / start_price
 
                 lines.append("")
                 lines.append("📈 COMPARISON - Strategy vs Buy-and-Hold")
                 lines.append("-" * 30)
-                lines.append(f"Strategy Return: {portfolio.percentage_return:.2%}")
-                lines.append(f"Buy-and-Hold Return: {buyhold_return:.2%}")
+                lines.append(f"Strategy Price Return: {portfolio.percentage_return:.2%}")
+                lines.append(f"Buy-and-Hold Price Return: {buyhold_price_return:.2%}")
                 lines.append(
-                    f"Outperformance: {(portfolio.percentage_return - buyhold_return):+.2%}"
+                    f"Price Return Outperformance: {(portfolio.percentage_return - buyhold_price_return):+.2%}"
                 )
+
+                # Add total return comparison using adjusted prices if available
+                if "Adj Close" in price_data.columns and portfolio.total_invested > 0:
+                    start_adj_price = float(price_data.iloc[0]["Adj Close"])
+                    end_adj_price = float(price_data.iloc[-1]["Adj Close"])
+                    buyhold_total_return = (end_adj_price - start_adj_price) / start_adj_price
+
+                    current_adj_price = float(price_data.iloc[-1]["Adj Close"])
+                    current_adj_value = portfolio.total_shares * current_adj_price
+                    total_return_adj = current_adj_value - portfolio.total_invested
+                    strategy_total_return_pct = total_return_adj / portfolio.total_invested
+
+                    lines.append("")
+                    lines.append("📈 TOTAL RETURN COMPARISON (includes dividends)")
+                    lines.append("-" * 30)
+                    lines.append(f"Strategy Total Return: {strategy_total_return_pct:.2%}")
+                    lines.append(f"Buy-and-Hold Total Return: {buyhold_total_return:.2%}")
+                    lines.append(
+                        f"Total Return Outperformance: {(strategy_total_return_pct - buyhold_total_return):+.2%}"
+                    )
 
         except Exception as e:
             price_monitor_logger.setLevel(original_level)
@@ -499,7 +559,12 @@ def format_evaluation_result(result: EvaluationResult, config: Any) -> str:
     return "\n".join(lines)
 
 
-def format_portfolio_status(tracker: InvestmentTracker, current_price: float, config: Any) -> str:
+def format_portfolio_status(
+    tracker: InvestmentTracker,
+    current_price: float,
+    config: Any,
+    price_monitor: Optional[PriceMonitor] = None,
+) -> str:
     """Format current portfolio status for display."""
     investments = tracker.get_all_investments()
 
@@ -511,12 +576,40 @@ def format_portfolio_status(tracker: InvestmentTracker, current_price: float, co
     lines = []
     lines.append(f"\n📊 PORTFOLIO STATUS - {config.ticker}")
     lines.append("=" * 50)
-    lines.append(f"Current Price: ${current_price:.2f}")
+    lines.append(f"Current Price (Close): ${current_price:.2f}")
     lines.append(f"Total Invested: ${metrics.total_invested:,.2f}")
     lines.append(f"Total Shares: {metrics.total_shares:.4f}")
-    lines.append(f"Current Value: ${metrics.current_value:,.2f}")
-    lines.append(f"Total Return: ${metrics.total_return:,.2f}")
-    lines.append(f"Percentage Return: {metrics.percentage_return:.2%}")
+    lines.append(f"Current Value (Close): ${metrics.current_value:,.2f}")
+    lines.append(f"Price Return (Close): ${metrics.total_return:,.2f}")
+    lines.append(f"Price Return %: {metrics.percentage_return:.2%}")
+
+    # Calculate total return using Adjusted Close prices if price_monitor is available
+    if price_monitor is not None:
+        try:
+            # Get current adjusted price
+            today = date.today()
+            start_date = today - timedelta(days=5)  # Small buffer to ensure we get recent data
+            price_data = price_monitor.fetch_price_data(config.ticker, start_date, today)
+
+            if not price_data.empty and "Adj Close" in price_data.columns:
+                current_adj_price = float(price_data.iloc[-1]["Adj Close"])
+                adj_metrics = tracker.calculate_portfolio_metrics_adjusted(current_adj_price)
+
+                lines.append(f"Current Price (Adj Close): ${current_adj_price:.2f}")
+                lines.append(f"Current Value (Adj Close): ${adj_metrics.current_value:,.2f}")
+                lines.append(f"Total Return (Adj Close): ${adj_metrics.total_return:,.2f}")
+                lines.append(
+                    f"Total Return % (includes dividends): {adj_metrics.percentage_return:.2%}"
+                )
+            else:
+                lines.append("Total Return (Adj Close): N/A (data unavailable)")
+
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                f"Could not calculate total return with adjusted prices: {e}"
+            )
+            lines.append("Total Return (Adj Close): N/A (calculation failed)")
+
     lines.append("")
 
     # Recent investments
@@ -1083,7 +1176,7 @@ def main() -> None:
             try:
                 current_price = price_monitor.get_current_price(config.ticker)
                 formatted_status = format_portfolio_status(
-                    investment_tracker, current_price, config
+                    investment_tracker, current_price, config, price_monitor
                 )
                 print(formatted_status)
 
