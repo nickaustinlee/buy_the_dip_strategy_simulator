@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class EvaluationResult:
     """Result of a daily trading evaluation."""
-    
+
     def __init__(
         self,
         evaluation_date: date,
@@ -27,7 +27,7 @@ class EvaluationResult:
         trigger_met: bool,
         recent_investment_exists: bool,
         investment_executed: bool,
-        investment: Optional[Investment] = None
+        investment: Optional[Investment] = None,
     ):
         self.evaluation_date = evaluation_date
         self.yesterday_price = yesterday_price
@@ -41,7 +41,7 @@ class EvaluationResult:
 
 class BacktestResult:
     """Result of a backtest run."""
-    
+
     def __init__(
         self,
         start_date: date,
@@ -51,7 +51,7 @@ class BacktestResult:
         investments_executed: int,
         investments_blocked_by_constraint: int,
         final_portfolio: PortfolioMetrics,
-        all_investments: List[Investment]
+        all_investments: List[Investment],
     ):
         self.start_date = start_date
         self.end_date = end_date
@@ -65,12 +65,16 @@ class BacktestResult:
 
 class StrategySystem:
     """Core system that executes the buy-the-dip trading strategy."""
-    
-    def __init__(self, config: StrategyConfig, price_monitor: Optional[PriceMonitor] = None, 
-                 investment_tracker: Optional[InvestmentTracker] = None):
+
+    def __init__(
+        self,
+        config: StrategyConfig,
+        price_monitor: Optional[PriceMonitor] = None,
+        investment_tracker: Optional[InvestmentTracker] = None,
+    ):
         """
         Initialize the strategy system.
-        
+
         Args:
             config: Strategy configuration
             price_monitor: Price monitor instance (optional, creates default if None)
@@ -79,31 +83,37 @@ class StrategySystem:
         self.config = config
         self.price_monitor = price_monitor or PriceMonitor()
         self.investment_tracker = investment_tracker or InvestmentTracker()
-        
+
         logger.info(f"StrategySystem initialized for ticker {config.ticker}")
-    
-    def calculate_trigger_price(self, prices: pd.Series, window_days: int, trigger_pct: float) -> float:
+
+    def calculate_trigger_price(
+        self, prices: pd.Series, window_days: int, trigger_pct: float
+    ) -> float:
         """
         Calculate the trigger price based on rolling maximum and percentage trigger.
-        
+
         Args:
             prices: Series of closing prices
             window_days: Number of days for rolling window
             trigger_pct: Percentage trigger (e.g., 0.90 for 90%)
-            
+
         Returns:
             Calculated trigger price
         """
         if prices.empty:
             raise ValueError("Cannot calculate trigger price with empty price data")
-        
+
         # Filter prices based on window type (calendar days vs trading days)
         if self.config.use_trading_days:
             # Use last N trading days (records)
             window_prices = prices.tail(window_days)
         else:
             # Use last N calendar days
-            if len(prices) > 0 and hasattr(prices.index, 'max') and isinstance(prices.index.max(), date):
+            if (
+                len(prices) > 0
+                and hasattr(prices.index, "max")
+                and isinstance(prices.index.max(), date)
+            ):
                 # Only apply calendar day filtering if we have date indices
                 latest_date = prices.index.max()
                 cutoff_date = latest_date - timedelta(days=window_days)
@@ -111,137 +121,157 @@ class StrategySystem:
             else:
                 # Fallback to trading days behavior for non-date indices (e.g., in tests)
                 window_prices = prices.tail(window_days)
-        
+
         # Calculate rolling maximum from the windowed data
         rolling_max = window_prices.max() if not window_prices.empty else 0.0
-        
+
         # Calculate trigger price
         trigger_price = rolling_max * trigger_pct
-        
-        logger.debug(f"Calculated trigger price: {trigger_price:.2f} (rolling_max: {rolling_max:.2f}, trigger_pct: {trigger_pct:.2%}, window_type: {'trading' if self.config.use_trading_days else 'calendar'} days)")
-        
+
+        logger.debug(
+            f"Calculated trigger price: {trigger_price:.2f} (rolling_max: {rolling_max:.2f}, trigger_pct: {trigger_pct:.2%}, window_type: {'trading' if self.config.use_trading_days else 'calendar'} days)"
+        )
+
         return trigger_price
-    
-    def should_invest(self, yesterday_price: float, trigger_price: float, evaluation_date: date) -> bool:
+
+    def should_invest(
+        self, yesterday_price: float, trigger_price: float, evaluation_date: date
+    ) -> bool:
         """
         Determine if investment should be made based on trigger conditions and constraints.
-        
+
         Args:
             yesterday_price: Yesterday's closing price
             trigger_price: Calculated trigger price
             evaluation_date: Date being evaluated
-            
+
         Returns:
             True if investment should be made
         """
         # Check if yesterday's price meets trigger condition
         trigger_met = yesterday_price <= trigger_price
-        
+
         if not trigger_met:
-            logger.debug(f"Trigger not met: yesterday_price {yesterday_price:.2f} > trigger_price {trigger_price:.2f}")
+            logger.debug(
+                f"Trigger not met: yesterday_price {yesterday_price:.2f} > trigger_price {trigger_price:.2f}"
+            )
             return False
-        
+
         # Check 28-day constraint (look back 28 days exclusive to allow investment on day 28)
-        recent_investment_exists = self.investment_tracker.has_recent_investment(evaluation_date, days=28)
-        
+        recent_investment_exists = self.investment_tracker.has_recent_investment(
+            evaluation_date, days=28
+        )
+
         if recent_investment_exists:
             logger.debug(f"Recent investment exists within 28 days of {evaluation_date}")
             return False
-        
+
         logger.debug(f"Investment conditions met for {evaluation_date}")
         return True
-    
-    def execute_investment(self, evaluation_date: date, closing_price: float, amount: float) -> Investment:
+
+    def execute_investment(
+        self, evaluation_date: date, closing_price: float, amount: float
+    ) -> Investment:
         """
         Execute an investment at the given price and amount.
-        
+
         Args:
             evaluation_date: Date of the investment
             closing_price: Closing price for the investment
             amount: Dollar amount to invest
-            
+
         Returns:
             Investment record
         """
         shares = amount / closing_price
-        
+
         investment = Investment(
             date=evaluation_date,
             ticker=self.config.ticker,
             price=closing_price,
             amount=amount,
-            shares=shares
+            shares=shares,
         )
-        
+
         # Add to tracker
         self.investment_tracker.add_investment(investment)
-        
-        logger.info(f"Executed investment: {investment.date} - ${investment.amount:.2f} at ${investment.price:.2f} = {investment.shares:.4f} shares")
-        
+
+        logger.info(
+            f"Executed investment: {investment.date} - ${investment.amount:.2f} at ${investment.price:.2f} = {investment.shares:.4f} shares"
+        )
+
         return investment
-    
+
     def evaluate_trading_day(self, evaluation_date: date) -> EvaluationResult:
         """
         Evaluate a single trading day and execute investment if conditions are met.
-        
+
         Args:
             evaluation_date: Date to evaluate
-            
+
         Returns:
             Evaluation result with details of the decision
         """
         logger.debug(f"Evaluating trading day: {evaluation_date}")
-        
+
         # Get price data for rolling window + 1 day (to get yesterday's price)
-        start_date = evaluation_date - timedelta(days=self.config.rolling_window_days + 30)  # Extra buffer
+        start_date = evaluation_date - timedelta(
+            days=self.config.rolling_window_days + 30
+        )  # Extra buffer
         end_date = evaluation_date
-        
+
         # Fetch price data
         prices = self.price_monitor.get_closing_prices(self.config.ticker, start_date, end_date)
-        
+
         if prices.empty:
-            raise ValueError(f"No price data available for {self.config.ticker} from {start_date} to {end_date}")
-        
+            raise ValueError(
+                f"No price data available for {self.config.ticker} from {start_date} to {end_date}"
+            )
+
         # Get yesterday's price (last available price before evaluation_date)
         yesterday_date = evaluation_date - timedelta(days=1)
-        
+
         # Find the most recent price before or on yesterday
         available_dates = [d for d in prices.index if d <= yesterday_date]
         if not available_dates:
             raise ValueError(f"No price data available before {evaluation_date}")
-        
+
         yesterday_actual_date = max(available_dates)
         yesterday_price = float(prices[yesterday_actual_date])
-        
+
         # Get current day's closing price for investment execution
         current_day_prices = [p for d, p in prices.items() if d == evaluation_date]
         if not current_day_prices:
             raise ValueError(f"No price data available for evaluation date {evaluation_date}")
-        
+
         current_closing_price = float(current_day_prices[0])
-        
+
         # Calculate trigger price using prices up to yesterday (excluding current day)
         historical_prices = prices[prices.index <= yesterday_actual_date]
-        
+
         if len(historical_prices) < self.config.rolling_window_days:
-            logger.warning(f"Insufficient historical data: {len(historical_prices)} days available, {self.config.rolling_window_days} required")
+            logger.warning(
+                f"Insufficient historical data: {len(historical_prices)} days available, {self.config.rolling_window_days} required"
+            )
             # Use available data if we have at least some
             if historical_prices.empty:
                 raise ValueError("No historical price data available for trigger calculation")
-        
+
         trigger_price = self.calculate_trigger_price(
-            historical_prices, 
-            self.config.rolling_window_days, 
-            self.config.percentage_trigger
+            historical_prices, self.config.rolling_window_days, self.config.percentage_trigger
         )
-        
+
         # Calculate rolling maximum for result
         if self.config.use_trading_days:
             # Use last N trading days (records)
             window_prices = historical_prices.tail(self.config.rolling_window_days)
         else:
             # Use last N calendar days
-            if len(historical_prices) > 0 and hasattr(historical_prices.index, 'max') and isinstance(historical_prices.index.max(), date):
+            if (
+                len(historical_prices) > 0
+                and hasattr(historical_prices.index, "max")
+                and isinstance(historical_prices.index.max(), date)
+            ):
                 # Only apply calendar day filtering if we have date indices
                 latest_date = historical_prices.index.max()
                 cutoff_date = latest_date - timedelta(days=self.config.rolling_window_days)
@@ -249,26 +279,26 @@ class StrategySystem:
             else:
                 # Fallback to trading days behavior for non-date indices
                 window_prices = historical_prices.tail(self.config.rolling_window_days)
-        
+
         rolling_maximum = window_prices.max() if not window_prices.empty else 0.0
-        
+
         # Check if trigger condition is met
         trigger_met = yesterday_price <= trigger_price
-        
+
         # Check 28-day constraint (look back 28 days exclusive to allow investment on day 28)
-        recent_investment_exists = self.investment_tracker.has_recent_investment(evaluation_date, days=28)
-        
+        recent_investment_exists = self.investment_tracker.has_recent_investment(
+            evaluation_date, days=28
+        )
+
         # Determine if investment should be executed
         should_invest = trigger_met and not recent_investment_exists
-        
+
         investment = None
         if should_invest:
             investment = self.execute_investment(
-                evaluation_date, 
-                current_closing_price, 
-                self.config.monthly_dca_amount
+                evaluation_date, current_closing_price, self.config.monthly_dca_amount
             )
-        
+
         return EvaluationResult(
             evaluation_date=evaluation_date,
             yesterday_price=yesterday_price,
@@ -277,46 +307,52 @@ class StrategySystem:
             trigger_met=trigger_met,
             recent_investment_exists=recent_investment_exists,
             investment_executed=should_invest,
-            investment=investment
+            investment=investment,
         )
-    
+
     def run_backtest(self, start_date: date, end_date: date) -> BacktestResult:
         """
         Run a backtest over the specified date range.
-        
+
         Args:
             start_date: Start date for backtest
             end_date: End date for backtest
-            
+
         Returns:
             Backtest result with performance metrics
         """
         logger.info(f"Running backtest from {start_date} to {end_date}")
-        
+
         # Clear existing investments for clean backtest
         original_investments = self.investment_tracker.get_all_investments()
         self.investment_tracker.clear_all_investments()
-        
+
         total_evaluations = 0
         trigger_conditions_met = 0
         investments_executed = 0
         investments_blocked_by_constraint = 0
-        
+
         try:
             # Fetch all price data upfront for better performance
             logger.info(f"Fetching price data for {self.config.ticker}...")
             data_start_date = start_date - timedelta(days=self.config.rolling_window_days + 30)
-            all_prices = self.price_monitor.get_closing_prices(self.config.ticker, data_start_date, end_date)
-            
+            all_prices = self.price_monitor.get_closing_prices(
+                self.config.ticker, data_start_date, end_date
+            )
+
             if all_prices.empty:
-                raise ValueError(f"No price data available for {self.config.ticker} from {data_start_date} to {end_date}")
-            
+                raise ValueError(
+                    f"No price data available for {self.config.ticker} from {data_start_date} to {end_date}"
+                )
+
             logger.info(f"Fetched {len(all_prices)} price records, running backtest...")
-            
+
             # Log API stats after initial fetch
             api_stats_initial = self.price_monitor.get_api_stats()
-            logger.info(f"Data fetch - API calls: {api_stats_initial['api_calls_made']}, Cache hits: {api_stats_initial['cache_hits']}")
-            
+            logger.info(
+                f"Data fetch - API calls: {api_stats_initial['api_calls_made']}, Cache hits: {api_stats_initial['cache_hits']}"
+            )
+
             # Generate business days in the range
             current_date = start_date
             while current_date <= end_date:
@@ -328,65 +364,67 @@ class StrategySystem:
                             # Skip silently - likely a holiday
                             current_date += timedelta(days=1)
                             continue
-                        
+
                         # Get yesterday's price (last available price before current_date)
                         yesterday_date = current_date - timedelta(days=1)
                         available_dates = [d for d in all_prices.index if d <= yesterday_date]
-                        
+
                         if not available_dates:
                             current_date += timedelta(days=1)
                             continue
-                        
+
                         yesterday_actual_date = max(available_dates)
                         yesterday_price = float(all_prices[yesterday_actual_date])
                         current_closing_price = float(all_prices[current_date])
-                        
+
                         # Calculate trigger price using historical prices
                         historical_prices = all_prices[all_prices.index <= yesterday_actual_date]
-                        
+
                         if len(historical_prices) < self.config.rolling_window_days:
                             # Not enough data yet
                             current_date += timedelta(days=1)
                             continue
-                        
+
                         trigger_price = self.calculate_trigger_price(
-                            historical_prices, 
-                            self.config.rolling_window_days, 
-                            self.config.percentage_trigger
+                            historical_prices,
+                            self.config.rolling_window_days,
+                            self.config.percentage_trigger,
                         )
-                        
+
                         # Check if trigger condition is met
                         trigger_met = yesterday_price <= trigger_price
-                        
+
                         # Check 28-day constraint
-                        recent_investment_exists = self.investment_tracker.has_recent_investment(current_date, days=28)
-                        
+                        recent_investment_exists = self.investment_tracker.has_recent_investment(
+                            current_date, days=28
+                        )
+
                         # Count evaluation
                         total_evaluations += 1
-                        
+
                         if trigger_met:
                             trigger_conditions_met += 1
-                            
+
                             if not recent_investment_exists:
                                 # Execute investment
                                 self.execute_investment(
-                                    current_date, 
-                                    current_closing_price, 
-                                    self.config.monthly_dca_amount
+                                    current_date,
+                                    current_closing_price,
+                                    self.config.monthly_dca_amount,
                                 )
                                 investments_executed += 1
                             else:
                                 investments_blocked_by_constraint += 1
-                                
+
                     except Exception as e:
                         # Skip days with errors
                         logger.debug(f"Skipping {current_date}: {e}")
-                
+
                 current_date += timedelta(days=1)
-            
+
             # Calculate final portfolio metrics
             all_investments = self.investment_tracker.get_all_investments()
-            
+
             if all_investments:
                 # Get final price for portfolio calculation
                 if end_date in all_prices.index:
@@ -394,7 +432,7 @@ class StrategySystem:
                 else:
                     # Use last available price
                     current_price = float(all_prices.iloc[-1])
-                
+
                 final_portfolio = self.investment_tracker.calculate_portfolio_metrics(current_price)
             else:
                 final_portfolio = PortfolioMetrics(
@@ -402,15 +440,19 @@ class StrategySystem:
                     total_shares=0.0,
                     current_value=0.0,
                     total_return=0.0,
-                    percentage_return=0.0
+                    percentage_return=0.0,
                 )
-            
-            logger.info(f"Backtest completed: {total_evaluations} evaluations, {investments_executed} investments executed")
-            
+
+            logger.info(
+                f"Backtest completed: {total_evaluations} evaluations, {investments_executed} investments executed"
+            )
+
             # Log final API stats
             api_stats_final = self.price_monitor.get_api_stats()
-            logger.info(f"Total - API calls: {api_stats_final['api_calls_made']}, Cache hits: {api_stats_final['cache_hits']}")
-            
+            logger.info(
+                f"Total - API calls: {api_stats_final['api_calls_made']}, Cache hits: {api_stats_final['cache_hits']}"
+            )
+
             return BacktestResult(
                 start_date=start_date,
                 end_date=end_date,
@@ -419,9 +461,9 @@ class StrategySystem:
                 investments_executed=investments_executed,
                 investments_blocked_by_constraint=investments_blocked_by_constraint,
                 final_portfolio=final_portfolio,
-                all_investments=all_investments
+                all_investments=all_investments,
             )
-            
+
         finally:
             # Restore original investments
             self.investment_tracker.clear_all_investments()

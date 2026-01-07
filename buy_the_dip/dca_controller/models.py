@@ -11,16 +11,17 @@ import uuid
 
 class DCAState(Enum):
     """States for DCA session lifecycle."""
+
     MONITORING = "monitoring"
-    ACTIVE = "active" 
+    ACTIVE = "active"
     COMPLETED = "completed"
 
 
 class DCASession(BaseModel):
     """Model for a DCA investment session."""
-    
+
     model_config = ConfigDict(validate_assignment=True)
-    
+
     session_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     trigger_price: float = Field(gt=0.0)
     start_date: date
@@ -32,9 +33,9 @@ class DCASession(BaseModel):
 
 class Transaction(BaseModel):
     """Model for an investment transaction."""
-    
+
     model_config = ConfigDict(validate_assignment=True)
-    
+
     transaction_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     session_id: str
     date: date
