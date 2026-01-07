@@ -64,29 +64,7 @@ services:
         echo '✅ Python 3.13 tests passed!'
       "
 
-  test-python-3-14:
-    build:
-      context: .
-      dockerfile: Dockerfile.test
-      args:
-        PYTHON_VERSION: "3.14"
-    volumes:
-      - .:/app
-      - test-cache-3-14:/tmp/poetry_cache
-    environment:
-      - PYTHONPATH=/app
-    command: >
-      sh -c "
-        echo '=== Testing Python 3.14 ===' &&
-        python --version &&
-        with-venv pytest tests/unit/ -v --tb=short &&
-        echo '=== CLI Test ===' &&
-        with-venv buy-the-dip --help > /dev/null &&
-        echo '✅ Python 3.14 tests passed!'
-      "
-
 volumes:
   test-cache-3-11:
   test-cache-3-12:
   test-cache-3-13:
-  test-cache-3-14:

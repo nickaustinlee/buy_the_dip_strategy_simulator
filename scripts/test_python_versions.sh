@@ -42,7 +42,7 @@ docker-compose -f docker-compose.test.yml build
 # Test each Python version
 FAILED_VERSIONS=()
 
-for version in "3-11" "3-12" "3-13" "3-14"; do
+for version in "3-11" "3-12" "3-13"; do
     if ! test_python_version $version; then
         FAILED_VERSIONS+=($version)
     fi
@@ -54,7 +54,7 @@ echo "================"
 
 if [ ${#FAILED_VERSIONS[@]} -eq 0 ]; then
     echo -e "${GREEN}🎉 All Python versions passed!${NC}"
-    echo -e "${GREEN}✅ Python 3.11, 3.12, 3.13, 3.14 are all compatible${NC}"
+    echo -e "${GREEN}✅ Python 3.11, 3.12, 3.13 are all compatible${NC}"
     exit 0
 else
     echo -e "${RED}❌ Some versions failed:${NC}"
