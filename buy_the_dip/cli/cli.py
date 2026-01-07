@@ -872,15 +872,14 @@ def main() -> None:
 
                     # Get reference price (yesterday's or latest based on flag)
                     if args.latest_closing_price:
-                        # Use today's closing price - error if not available
-                        if today not in prices.index:
-                            logger.warning(
-                                f"Today's closing price not available for {ticker}. Skipping."
-                            )
+                        # Use the most recent available closing price
+                        available_dates = [d for d in prices.index]
+                        if not available_dates:
+                            logger.warning(f"No price data available for {ticker}. Skipping.")
                             continue
 
-                        reference_date = today
-                        reference_price = float(prices[today])
+                        reference_date = max(available_dates)
+                        reference_price = float(prices[reference_date])
                     else:
                         # Use last trading day's closing price (default behavior)
                         yesterday = today - timedelta(days=1)
@@ -1199,15 +1198,14 @@ def main() -> None:
 
                 # Get reference price (yesterday's or latest based on flag)
                 if args.latest_closing_price:
-                    # Use today's closing price - error if not available
-                    if today not in prices.index:
-                        logger.error(
-                            f"Today's closing price not available for {config.ticker}. Yahoo Finance may not have updated yet - please try again later."
-                        )
+                    # Use the most recent available closing price
+                    available_dates = [d for d in prices.index]
+                    if not available_dates:
+                        logger.error(f"No price data available for {config.ticker}")
                         sys.exit(1)
 
-                    reference_date = today
-                    reference_price = float(prices[today])
+                    reference_date = max(available_dates)
+                    reference_price = float(prices[reference_date])
                 else:
                     # Use last trading day's closing price (default behavior)
                     yesterday = today - timedelta(days=1)
