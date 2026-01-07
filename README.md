@@ -5,9 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Tested with Hypothesis](https://img.shields.io/badge/hypothesis-tested-brightgreen.svg)](https://hypothesis.readthedocs.io/)
-[![228 Tests](https://img.shields.io/badge/tests-228%20passing-brightgreen.svg)](https://github.com/nickaustinlee/buy_the_dip_strategy_simulator)
+[![242 Tests](https://img.shields.io/badge/tests-242%20passing-brightgreen.svg)](https://github.com/nickaustinlee/buy_the_dip_strategy_simulator)
 
-A Python-based stock trading strategy simulator that implements a simplified "buy the dip" approach. The system evaluates each trading day independently, checking if yesterday's closing price dropped below a dynamically calculated trigger price. When conditions are met and no investment has been made in the past 28 days (configurable), it executes a buy at the current day's closing price.
+A Python-based stock trading strategy simulator that implements a simplified "buy the dip" approach. The system evaluates each trading day independently, checking if yesterday's closing price dropped below a dynamically calculated trigger price. When conditions are met and no investment has been made in the past 28 days (configurable), it simulates a scheduled buy at the current day's closing price.
 
 ## 🚀 Key Features
 
@@ -19,7 +19,7 @@ A Python-based stock trading strategy simulator that implements a simplified "bu
 - **Configurable Strategy Parameters**: Customize ticker, rolling window, trigger percentage, and investment amount via YAML
 - **Intelligent Price Monitoring**: Real-time price data fetching with smart caching and validation
 - **Calendar vs Trading Days**: Choose between calendar days (default, intuitive) or trading days for rolling window calculations
-- **Comprehensive Testing**: 228 tests including property-based testing for universal correctness guarantees
+- **Comprehensive Testing**: 242 tests including property-based testing for universal correctness guarantees
 - **Robust CLI Interface**: Full-featured command-line interface with backtesting and reporting
 - **Performance Analysis**: Portfolio metrics and performance tracking with buy-and-hold comparison
 - **Production Ready**: Thoroughly tested with comprehensive error handling
@@ -29,9 +29,9 @@ A Python-based stock trading strategy simulator that implements a simplified "bu
 The strategy follows a simple daily evaluation process:
 
 1. **Calculate Trigger Price**: `rolling_maximum * percentage_trigger` (e.g., 90% of 90-day high)
-2. **Check Yesterday's Price**: Did it drop to or below the trigger price?
-3. **Enforce Investment Spacing**: Has it been at least the configured minimum days since the last investment?
-4. **Execute Investment**: If both conditions are met, invest the configured amount
+2. **Check Most Recent Closing Price**: Did it drop to or below the trigger price?
+3. **Enforce Investment Spacing**: Has it been at least the configured minimum days since the last investment (default is 28 days)?
+4. **Execute Investment**: If both conditions are met, simulate a buy for the configured amount at the closing price.
 
 **Example**: If SPY's 90-day high is $500 and your trigger is 90%, the system will invest when the price drops to $450 or below (assuming no recent investments within your configured spacing period).
 
@@ -385,6 +385,13 @@ use_trading_days: true  # Override with --count-trading-days CLI flag
 
 ### Cache Management
 
+The application stores cached data in your home directory at `~/.buy_the_dip/`:
+
+- **`price_cache/`** - Stock price data cache (speeds up repeated queries)
+- **`data/`** - Investment tracking data (your purchase history)  
+- **`state/`** - Application state persistence
+- **`notifications/`** - Buy signal notification logs
+
 ```bash
 # Show cache information
 poetry run buy-the-dip --cache-info SPY
@@ -395,8 +402,14 @@ poetry run buy-the-dip --validate-cache SPY
 # Clear cache for specific ticker
 poetry run buy-the-dip --clear-cache SPY
 
-# Force fresh data (ignore cache)
+# Clear ALL cached price data
+poetry run buy-the-dip --clear-cache all
+
+# Force fresh data (ignore cache for one run)
 poetry run buy-the-dip --ignore-cache --backtest
+
+# Manual cache cleanup (removes everything)
+rm -rf ~/.buy_the_dip/price_cache/
 ```
 
 ### Try Different Strategies
@@ -629,7 +642,7 @@ CLI → ConfigurationManager → StrategySystem
 
 ## 🧪 Testing
 
-The system includes comprehensive testing with 228 tests covering all functionality:
+The system includes comprehensive testing with 242 tests covering all functionality:
 
 ### Run Tests Locally with Poetry
 
@@ -660,7 +673,7 @@ docker-compose -f docker-compose.test.yml down
 ```
 
 **What this tests**:
-- ✅ **All tests** - Complete test suite (228 tests: unit, property, integration) across all Python versions
+- ✅ **All tests** - Complete test suite (242 tests: unit, property, integration) across all Python versions
 - ✅ **CLI functionality** - Ensures the CLI works correctly
 - ✅ **Type checking** - Runs mypy to catch type errors
 - ✅ **Code formatting** - Validates black formatting
@@ -689,7 +702,7 @@ Tested versions:
   • Python 3.14 ✅
 
 All checks completed successfully:
-  • All tests (228 tests: unit, property, integration)
+  • All tests (242 tests: unit, property, integration)
   • CLI functionality
   • Type checking (mypy)
   • Code formatting (black)
