@@ -41,10 +41,10 @@ jobs:
       if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       run: poetry install --with test,dev
 
-    - name: Run unit tests
+    - name: Run all tests
       run: |
-        echo "🐍 Testing Python ${{ matrix.python-version }}"
-        poetry run pytest tests/unit/ -v --tb=short
+        echo "🐍 Testing Python ${{ matrix.python-version }} - Running all 242 tests"
+        poetry run pytest -v --tb=short
 
     - name: Test CLI functionality
       run: |
@@ -71,6 +71,7 @@ jobs:
       run: |
         if [ "${{ needs.test.result }}" == "success" ]; then
           echo "🎉 All Python versions (3.11, 3.12, 3.13, 3.14) passed!"
+          echo "✅ All 242 tests passed across all versions"
           echo "✅ Ready for PyPI publication"
         else
           echo "❌ Some tests failed. Check the logs above."
