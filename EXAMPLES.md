@@ -37,7 +37,6 @@ poetry run python buy_the_dip.py --report
 
 **What this does:**
 - Loads existing strategy state
-- Calculates CAGR metrics
 - Compares strategy vs buy-and-hold
 - Shows detailed performance analysis
 
@@ -353,9 +352,9 @@ EOF
 done
 
 # Compare results
-echo "Trigger 0.85:"; grep "Strategy CAGR" backtest_0.85.txt
-echo "Trigger 0.90:"; grep "Strategy CAGR" backtest_0.90.txt  
-echo "Trigger 0.95:"; grep "Strategy CAGR" backtest_0.95.txt
+echo "Trigger 0.85:"; grep "Strategy Return" backtest_0.85.txt
+echo "Trigger 0.90:"; grep "Strategy Return" backtest_0.90.txt  
+echo "Trigger 0.95:"; grep "Strategy Return" backtest_0.95.txt
 ```
 
 ## Error Handling Examples

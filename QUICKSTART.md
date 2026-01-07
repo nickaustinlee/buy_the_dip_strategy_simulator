@@ -148,7 +148,6 @@ This shows:
 - Total investments made
 - Current portfolio value
 - Performance vs buy-and-hold
-- CAGR (Compound Annual Growth Rate) analysis
 
 ## 🛠️ Customize Your Strategy
 
@@ -217,7 +216,6 @@ monthly_dca_amount: 1000.0
 - **Rolling Maximum**: Highest price in the last N days
 - **Trigger Price**: Rolling maximum × trigger percentage
 - **DCA (Dollar-Cost Averaging)**: Investing fixed amounts regularly
-- **CAGR**: Compound Annual Growth Rate (annualized returns)
 
 ### Risk Considerations
 - Past performance doesn't guarantee future results

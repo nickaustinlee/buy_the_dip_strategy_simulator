@@ -12,68 +12,74 @@ __author__ = "Buy the Dip Strategy Team"
 # Lazy imports to avoid dependency issues during package setup
 __all__ = [
     "ConfigurationManager",
-    "StrategyConfig", 
+    "StrategyConfig",
     "PriceMonitor",
     "PriceData",
     "DCAController",
-    "DCASession", 
+    "DCASession",
     "DCAState",
     "StrategyEngine",
     "Transaction",
     "StrategyState",
-    "CAGRAnalysis",
-    "CAGRAnalysisEngine",
     "Investment",
     "PortfolioMetrics",
     "InvestmentTracker",
 ]
 
+
 def __getattr__(name: str) -> type:
     """Lazy import for package components."""
     if name == "ConfigurationManager":
         from .config import ConfigurationManager
+
         return ConfigurationManager
     elif name == "StrategyConfig":
         from .config import StrategyConfig
+
         return StrategyConfig
     elif name == "PriceMonitor":
         from .price_monitor import PriceMonitor
+
         return PriceMonitor
     elif name == "PriceData":
         from .price_monitor import PriceData
+
         return PriceData
     elif name == "DCAController":
         from .dca_controller import DCAController
+
         return DCAController
     elif name == "DCASession":
         from .dca_controller import DCASession
+
         return DCASession
     elif name == "DCAState":
         from .dca_controller import DCAState
+
         return DCAState
     elif name == "StrategyEngine":
         from .strategy_engine import StrategyEngine
+
         return StrategyEngine
     elif name == "Transaction":
         from .models import Transaction
+
         return Transaction
     elif name == "StrategyState":
         from .models import StrategyState
+
         return StrategyState
-    elif name == "CAGRAnalysis":
-        from .models import CAGRAnalysis
-        return CAGRAnalysis
-    elif name == "CAGRAnalysisEngine":
-        from .analysis import CAGRAnalysisEngine
-        return CAGRAnalysisEngine
     elif name == "Investment":
         from .models import Investment
+
         return Investment
     elif name == "PortfolioMetrics":
         from .models import PortfolioMetrics
+
         return PortfolioMetrics
     elif name == "InvestmentTracker":
         from .investment_tracker import InvestmentTracker
+
         return InvestmentTracker
     else:
         raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

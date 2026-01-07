@@ -649,7 +649,7 @@ poetry run mypy buy_the_dip/
 buy_the_dip/
 ├── cli/                   # Command-line interface
 ├── config/               # Configuration management
-├── analysis/             # Performance analysis (CAGR)
+├── analysis/             # Performance analysis components
 ├── strategy_system.py    # Core strategy logic
 ├── investment_tracker.py # Investment history and constraints
 ├── price_monitor/        # Price data fetching and caching
