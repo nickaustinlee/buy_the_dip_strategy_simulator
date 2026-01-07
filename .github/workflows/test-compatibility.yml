@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
       fail-fast: false  # Continue testing other versions if one fails
 
     steps:
@@ -70,7 +70,7 @@ jobs:
     - name: Test Summary
       run: |
         if [ "${{ needs.test.result }}" == "success" ]; then
-          echo "🎉 All Python versions (3.11, 3.12, 3.13) passed!"
+          echo "🎉 All Python versions (3.11, 3.12, 3.13, 3.14) passed!"
           echo "✅ Ready for PyPI publication"
         else
           echo "❌ Some tests failed. Check the logs above."
