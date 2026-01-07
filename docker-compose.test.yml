@@ -16,10 +16,15 @@ services:
       sh -c "
         echo '=== Testing Python 3.11 ===' &&
         python --version &&
+        echo '🐍 Running unit tests' &&
         with-venv pytest tests/unit/ -v --tb=short &&
-        echo '=== CLI Test ===' &&
+        echo '🔧 Testing CLI functionality' &&
         with-venv buy-the-dip --help > /dev/null &&
-        echo '✅ Python 3.11 tests passed!'
+        echo '🔍 Running type checks' &&
+        with-venv mypy buy_the_dip/ --ignore-missing-imports &&
+        echo '🎨 Checking code formatting' &&
+        with-venv black --check buy_the_dip/ tests/ &&
+        echo '✅ Python 3.11 all checks passed!'
       "
 
   test-python-3-12:
@@ -37,10 +42,15 @@ services:
       sh -c "
         echo '=== Testing Python 3.12 ===' &&
         python --version &&
+        echo '🐍 Running unit tests' &&
         with-venv pytest tests/unit/ -v --tb=short &&
-        echo '=== CLI Test ===' &&
+        echo '🔧 Testing CLI functionality' &&
         with-venv buy-the-dip --help > /dev/null &&
-        echo '✅ Python 3.12 tests passed!'
+        echo '🔍 Running type checks' &&
+        with-venv mypy buy_the_dip/ --ignore-missing-imports &&
+        echo '🎨 Checking code formatting' &&
+        with-venv black --check buy_the_dip/ tests/ &&
+        echo '✅ Python 3.12 all checks passed!'
       "
 
   test-python-3-13:
@@ -58,13 +68,45 @@ services:
       sh -c "
         echo '=== Testing Python 3.13 ===' &&
         python --version &&
+        echo '🐍 Running unit tests' &&
         with-venv pytest tests/unit/ -v --tb=short &&
-        echo '=== CLI Test ===' &&
+        echo '🔧 Testing CLI functionality' &&
         with-venv buy-the-dip --help > /dev/null &&
-        echo '✅ Python 3.13 tests passed!'
+        echo '🔍 Running type checks' &&
+        with-venv mypy buy_the_dip/ --ignore-missing-imports &&
+        echo '🎨 Checking code formatting' &&
+        with-venv black --check buy_the_dip/ tests/ &&
+        echo '✅ Python 3.13 all checks passed!'
+      "
+
+  test-python-3-14:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        PYTHON_VERSION: "3.14"
+    volumes:
+      - .:/app
+      - test-cache-3-14:/tmp/poetry_cache
+    environment:
+      - PYTHONPATH=/app
+    command: >
+      sh -c "
+        echo '=== Testing Python 3.14 ===' &&
+        python --version &&
+        echo '🐍 Running unit tests' &&
+        with-venv pytest tests/unit/ -v --tb=short &&
+        echo '🔧 Testing CLI functionality' &&
+        with-venv buy-the-dip --help > /dev/null &&
+        echo '🔍 Running type checks' &&
+        with-venv mypy buy_the_dip/ --ignore-missing-imports &&
+        echo '🎨 Checking code formatting' &&
+        with-venv black --check buy_the_dip/ tests/ &&
+        echo '✅ Python 3.14 all checks passed!'
       "
 
 volumes:
   test-cache-3-11:
   test-cache-3-12:
   test-cache-3-13:
+  test-cache-3-14:
