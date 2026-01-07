@@ -7,8 +7,8 @@ echo "🐳 Running Docker tests across all Python versions..."
 echo "=================================================="
 echo ""
 
-# Run docker-compose and capture output
-docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+# Run docker-compose and capture output (--rm auto-removes containers)
+docker-compose -f docker-compose.test.yml up --abort-on-container-exit --rm
 
 # Check exit code
 EXIT_CODE=$?
@@ -39,10 +39,5 @@ else
 fi
 
 echo "=================================================="
-
-# Clean up containers
-echo ""
-echo "🧹 Cleaning up containers..."
-docker-compose -f docker-compose.test.yml down
 
 exit $EXIT_CODE

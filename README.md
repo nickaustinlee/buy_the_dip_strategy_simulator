@@ -620,9 +620,8 @@ poetry run pytest tests/integration/   # Integration tests
 # Recommended: Use the wrapper script for clean output
 ./scripts/run_docker_tests.sh
 
-# Or run docker-compose directly
-docker-compose -f docker-compose.test.yml up --abort-on-container-exit
-docker-compose -f docker-compose.test.yml down
+# Or run docker-compose directly (auto-removes containers when done)
+docker-compose -f docker-compose.test.yml up --abort-on-container-exit --rm
 ```
 
 **What this tests**:
