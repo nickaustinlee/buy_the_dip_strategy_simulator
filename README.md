@@ -1,5 +1,12 @@
 # Buy the Dip Strategy
 
+[![Python Compatibility Tests](https://github.com/nickaustinlee/buy_the_dip_strategy_simulator/actions/workflows/test-compatibility.yml/badge.svg)](https://github.com/nickaustinlee/buy_the_dip_strategy_simulator/actions/workflows/test-compatibility.yml)
+[![Python 3.11-3.14](https://img.shields.io/badge/python-3.11--3.14-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Tested with Hypothesis](https://img.shields.io/badge/hypothesis-tested-brightgreen.svg)](https://hypothesis.readthedocs.io/)
+[![164 Tests](https://img.shields.io/badge/tests-164%20passing-brightgreen.svg)](https://github.com/nickaustinlee/buy_the_dip_strategy_simulator)
+
 A Python-based stock trading strategy simulator that implements a simplified "buy the dip" approach. The system evaluates each trading day independently, checking if yesterday's closing price dropped below a dynamically calculated trigger price. When conditions are met and no investment has been made in the past 28 days, it executes a buy at the current day's closing price.
 
 ## 🚀 Key Features

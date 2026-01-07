@@ -1,0 +1,32 @@
+# Multi-stage Dockerfile for testing multiple Python versions
+ARG PYTHON_VERSION=3.11
+FROM python:${PYTHON_VERSION}-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry
+RUN pip install poetry
+
+# Configure Poetry
+ENV POETRY_NO_INTERACTION=1
+
+# Set working directory
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Install dependencies
+RUN poetry install --with test,dev
+
+# Create a script to run commands with the correct virtual environment
+RUN echo '#!/bin/bash\nexport PATH="$(poetry env info --path)/bin:$PATH"\nexec "$@"' > /usr/local/bin/with-venv && \
+    chmod +x /usr/local/bin/with-venv
+
+# Run tests by default
+CMD ["with-venv", "pytest", "-v"]

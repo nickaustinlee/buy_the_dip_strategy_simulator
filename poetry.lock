@@ -1030,7 +1030,10 @@ files = [
 ]
 
 [package.dependencies]
-numpy = {version = ">=1.26.0", markers = "python_version >= \"3.12\""}
+numpy = [
+    {version = ">=1.23.2", markers = "python_version == \"3.11\""},
+    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
+]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
 tzdata = ">=2022.7"
@@ -1749,5 +1752,5 @@ repair = ["scipy (>=1.6.3)"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = "^3.13"
-content-hash = "a0dd22cd5327235de6d92383ee49b442c39a9ac4d6df328da285f711506c9e47"
+python-versions = "^3.11"
+content-hash = "cb85fd27b06f160748c83eb2fed2c974db658582aeb2f6e1b99a9e4ed6134cbc"
