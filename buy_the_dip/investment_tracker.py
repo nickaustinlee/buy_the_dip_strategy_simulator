@@ -63,11 +63,14 @@ class InvestmentTracker:
 
         Args:
             check_date: Date to check from
-            days: Number of calendar days to look back (default: 28)
+            days: Minimum calendar days between investments (inclusive). Must be >= 1.
 
         Returns:
-            True if any investment exists within the time window (exclusive of the Nth day)
+            True if any investment exists within the time window (preventing new investment)
         """
+        if days < 1:
+            raise ValueError("days must be >= 1")
+
         cutoff_date = check_date - timedelta(days=days)
 
         for investment in self._investments:

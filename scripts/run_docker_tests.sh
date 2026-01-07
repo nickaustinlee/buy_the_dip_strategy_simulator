@@ -7,8 +7,8 @@ echo "🐳 Running Docker tests across all Python versions..."
 echo "=================================================="
 echo ""
 
-# Run docker-compose and capture output (--rm auto-removes containers)
-docker-compose -f docker-compose.test.yml up --abort-on-container-exit --rm
+# Run docker-compose and capture output
+docker-compose -f docker-compose.test.yml up --abort-on-container-exit
 
 # Check exit code
 EXIT_CODE=$?
@@ -28,7 +28,7 @@ if [ $EXIT_CODE -eq 0 ]; then
     echo "  • Python 3.14 ✅"
     echo ""
     echo "All checks completed successfully:"
-    echo "  • Unit tests (151 tests)"
+    echo "  • All tests (228 tests: unit, property, integration)"
     echo "  • CLI functionality"
     echo "  • Type checking (mypy)"
     echo "  • Code formatting (black)"
@@ -39,5 +39,10 @@ else
 fi
 
 echo "=================================================="
+
+# Clean up containers
+echo ""
+echo "🧹 Cleaning up containers..."
+docker-compose -f docker-compose.test.yml down
 
 exit $EXIT_CODE

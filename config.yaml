@@ -84,3 +84,22 @@ monthly_dca_amount: 2000.0
 #   - 90: Reduce API calls for frequent testing
 #   - 365: Maximum caching for development
 data_cache_days: 30
+
+# -----------------------------------------------------------------------------
+# Investment Spacing Constraint
+# -----------------------------------------------------------------------------
+# Minimum number of calendar days between investments (inclusive)
+# This prevents over-investing during volatile periods
+#
+# Range: 1+ days (minimum 1 day between investments)
+# Default: 28 (traditional monthly spacing)
+# Examples:
+#   - 1: Allow daily investments (once per day)
+#   - 7: Allow weekly investments (every 7 days)
+#   - 14: Allow bi-weekly investments (every 14 days)
+#   - 28: Allow monthly investments (every 28 days, default)
+#   - 90: Allow quarterly investments (every 90 days)
+#
+# Note: This is the minimum number of days that must pass between investments.
+#       Setting to 7 means investments can happen every 7 days (weekly).
+min_days_between_investments: 28

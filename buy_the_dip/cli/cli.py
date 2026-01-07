@@ -378,6 +378,7 @@ def resolve_date_range(args: argparse.Namespace) -> Tuple[Optional[date], Option
 
 def format_backtest_result(result: BacktestResult, config: Any, price_monitor: PriceMonitor) -> str:
     """Format backtest result for display."""
+    constraint_days = config.min_days_between_investments
     lines = []
     lines.append(f"\n🎯 BACKTEST RESULTS - {config.ticker}")
     lines.append("=" * 60)
@@ -385,7 +386,14 @@ def format_backtest_result(result: BacktestResult, config: Any, price_monitor: P
     lines.append(f"Total Trading Days Evaluated: {result.total_evaluations}")
     lines.append(f"Trigger Conditions Met: {result.trigger_conditions_met}")
     lines.append(f"Investments Executed: {result.investments_executed}")
-    lines.append(f"Investments Blocked (28-day rule): {result.investments_blocked_by_constraint}")
+    if constraint_days == 0:
+        lines.append(
+            f"Investments Blocked (no constraint): {result.investments_blocked_by_constraint}"
+        )
+    else:
+        lines.append(
+            f"Investments Blocked ({constraint_days}-day rule): {result.investments_blocked_by_constraint}"
+        )
     lines.append("")
 
     # Portfolio metrics
@@ -459,6 +467,7 @@ def format_backtest_result(result: BacktestResult, config: Any, price_monitor: P
 
 def format_evaluation_result(result: EvaluationResult, config: Any) -> str:
     """Format single day evaluation result for display."""
+    constraint_days = config.min_days_between_investments
     lines = []
     lines.append(f"\n🎯 EVALUATION RESULT - {config.ticker} on {result.evaluation_date}")
     lines.append("=" * 60)
@@ -478,7 +487,10 @@ def format_evaluation_result(result: EvaluationResult, config: Any) -> str:
             lines.append(f"Price: ${result.investment.price:.2f}")
             lines.append(f"Shares: {result.investment.shares:.4f}")
     elif result.trigger_met and result.recent_investment_exists:
-        lines.append("⏸️  Investment blocked by 28-day constraint")
+        if constraint_days == 0:
+            lines.append("⏸️  Investment blocked (unexpected - no constraint configured)")
+        else:
+            lines.append(f"⏸️  Investment blocked by {constraint_days}-day constraint")
     elif not result.trigger_met:
         lines.append("⏸️  Trigger condition not met")
     else:
@@ -561,7 +573,7 @@ def format_multi_ticker_check(
         f"Summary: {'✅' if buy_signals > 0 else '❌'} {buy_signals} of {len(results)} tickers have buy signals"
     )
     lines.append("")
-    lines.append("Note: This check ignores the 28-day constraint.")
+    lines.append("Note: This check ignores the investment spacing constraint.")
     lines.append(
         "      Use --evaluate with --config to see if an investment would actually execute."
     )
@@ -621,7 +633,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Check if today is a buying day according to the strategy (ignores 28-day constraint)",
+        help="Check if today is a buying day according to the strategy (ignores investment spacing constraint)",
     )
 
     parser.add_argument(
@@ -681,6 +693,12 @@ def create_parser() -> argparse.ArgumentParser:
         "--count-trading-days",
         action="store_true",
         help="Use trading days instead of calendar days for rolling window calculations",
+    )
+
+    parser.add_argument(
+        "--min-days-between",
+        type=int,
+        help="Minimum calendar days between investments (inclusive). Default 28 for monthly. Set to 1 for daily, 7 for weekly.",
     )
 
     parser.add_argument(
@@ -886,6 +904,12 @@ def main() -> None:
         # Override config with CLI flag if provided
         if args.count_trading_days:
             config.use_trading_days = True
+
+        if args.min_days_between is not None:
+            if args.min_days_between < 1:
+                logger.error("--min-days-between must be >= 1")
+                sys.exit(1)
+            config.min_days_between_investments = args.min_days_between
 
         logger.info(f"Loaded configuration for ticker: {config.ticker}")
         logger.info(f"Rolling window: {config.rolling_window_days} days")
@@ -1161,7 +1185,7 @@ def main() -> None:
                     print(f"   Price is {pct_from_trigger:.1f}% above trigger")
 
                 print("")
-                print("Note: This check ignores the 28-day constraint.")
+                print("Note: This check ignores the investment spacing constraint.")
                 print("      Use --evaluate to see if an investment would actually execute.")
 
             except Exception as e:

@@ -14,8 +14,8 @@ services:
       sh -c "
         echo '=== Testing Python 3.11 ===' &&
         python --version &&
-        echo '🐍 Running unit tests' &&
-        with-venv pytest tests/unit/ -v --tb=short &&
+        echo '🐍 Running all tests (unit, property, integration)' &&
+        with-venv pytest tests/ -v --tb=short &&
         echo '🔧 Testing CLI functionality' &&
         with-venv buy-the-dip --help > /dev/null &&
         echo '🔍 Running type checks' &&
@@ -40,8 +40,8 @@ services:
       sh -c "
         echo '=== Testing Python 3.12 ===' &&
         python --version &&
-        echo '🐍 Running unit tests' &&
-        with-venv pytest tests/unit/ -v --tb=short &&
+        echo '🐍 Running all tests (unit, property, integration)' &&
+        with-venv pytest tests/ -v --tb=short &&
         echo '🔧 Testing CLI functionality' &&
         with-venv buy-the-dip --help > /dev/null &&
         echo '🔍 Running type checks' &&
@@ -66,8 +66,8 @@ services:
       sh -c "
         echo '=== Testing Python 3.13 ===' &&
         python --version &&
-        echo '🐍 Running unit tests' &&
-        with-venv pytest tests/unit/ -v --tb=short &&
+        echo '🐍 Running all tests (unit, property, integration)' &&
+        with-venv pytest tests/ -v --tb=short &&
         echo '🔧 Testing CLI functionality' &&
         with-venv buy-the-dip --help > /dev/null &&
         echo '🔍 Running type checks' &&
@@ -92,8 +92,8 @@ services:
       sh -c "
         echo '=== Testing Python 3.14 ===' &&
         python --version &&
-        echo '🐍 Running unit tests' &&
-        with-venv pytest tests/unit/ -v --tb=short &&
+        echo '🐍 Running all tests (unit, property, integration)' &&
+        with-venv pytest tests/ -v --tb=short &&
         echo '🔧 Testing CLI functionality' &&
         with-venv buy-the-dip --help > /dev/null &&
         echo '🔍 Running type checks' &&

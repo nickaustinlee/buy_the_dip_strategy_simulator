@@ -157,13 +157,15 @@ class StrategySystem:
             )
             return False
 
-        # Check 28-day constraint (look back 28 days exclusive to allow investment on day 28)
+        # Check constraint (minimum days between investments)
         recent_investment_exists = self.investment_tracker.has_recent_investment(
-            evaluation_date, days=28
+            evaluation_date, days=self.config.min_days_between_investments
         )
 
         if recent_investment_exists:
-            logger.debug(f"Recent investment exists within 28 days of {evaluation_date}")
+            logger.debug(
+                f"Recent investment exists within {self.config.min_days_between_investments} days of {evaluation_date}"
+            )
             return False
 
         logger.debug(f"Investment conditions met for {evaluation_date}")
@@ -285,9 +287,9 @@ class StrategySystem:
         # Check if trigger condition is met
         trigger_met = yesterday_price <= trigger_price
 
-        # Check 28-day constraint (look back 28 days exclusive to allow investment on day 28)
+        # Check constraint (minimum days between investments)
         recent_investment_exists = self.investment_tracker.has_recent_investment(
-            evaluation_date, days=28
+            evaluation_date, days=self.config.min_days_between_investments
         )
 
         # Determine if investment should be executed
@@ -394,9 +396,9 @@ class StrategySystem:
                         # Check if trigger condition is met
                         trigger_met = yesterday_price <= trigger_price
 
-                        # Check 28-day constraint
+                        # Check constraint
                         recent_investment_exists = self.investment_tracker.has_recent_investment(
-                            current_date, days=28
+                            current_date, days=self.config.min_days_between_investments
                         )
 
                         # Count evaluation

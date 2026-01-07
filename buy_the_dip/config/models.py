@@ -26,3 +26,8 @@ class StrategyConfig(BaseModel):
         default=False,
         description="If True, use trading days for rolling window; if False, use calendar days",
     )
+    min_days_between_investments: int = Field(
+        default=28,
+        ge=1,
+        description="Minimum calendar days between investments (inclusive). Default 28 for monthly spacing. Set to 1 for daily trades, 7 for weekly trades.",
+    )

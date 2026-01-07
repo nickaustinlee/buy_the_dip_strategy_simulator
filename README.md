@@ -5,9 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Tested with Hypothesis](https://img.shields.io/badge/hypothesis-tested-brightgreen.svg)](https://hypothesis.readthedocs.io/)
-[![164 Tests](https://img.shields.io/badge/tests-164%20passing-brightgreen.svg)](https://github.com/nickaustinlee/buy_the_dip_strategy_simulator)
+[![228 Tests](https://img.shields.io/badge/tests-228%20passing-brightgreen.svg)](https://github.com/nickaustinlee/buy_the_dip_strategy_simulator)
 
-A Python-based stock trading strategy simulator that implements a simplified "buy the dip" approach. The system evaluates each trading day independently, checking if yesterday's closing price dropped below a dynamically calculated trigger price. When conditions are met and no investment has been made in the past 28 days, it executes a buy at the current day's closing price.
+A Python-based stock trading strategy simulator that implements a simplified "buy the dip" approach. The system evaluates each trading day independently, checking if yesterday's closing price dropped below a dynamically calculated trigger price. When conditions are met and no investment has been made in the past 28 days (configurable), it executes a buy at the current day's closing price.
 
 ## 🚀 Key Features
 
@@ -15,11 +15,11 @@ A Python-based stock trading strategy simulator that implements a simplified "bu
 - **Multi-Ticker Buy Signal Check**: Instantly compare buy signals across multiple tickers to prioritize investments
 - **Latest Closing Price Mode**: Use `--latest-closing-price` flag for evening decision-making with today's closing price
 - **Simplified Daily Evaluation**: Clean, stateless daily evaluation logic - no complex session management
-- **28-Day Investment Spacing**: Automatic constraint enforcement preventing investments within 28 days
+- **Configurable Investment Spacing**: Customize minimum days between investments (1=daily, 7=weekly, 28=monthly) via config or CLI
 - **Configurable Strategy Parameters**: Customize ticker, rolling window, trigger percentage, and investment amount via YAML
 - **Intelligent Price Monitoring**: Real-time price data fetching with smart caching and validation
 - **Calendar vs Trading Days**: Choose between calendar days (default, intuitive) or trading days for rolling window calculations
-- **Comprehensive Testing**: 233 tests including property-based testing for universal correctness guarantees
+- **Comprehensive Testing**: 228 tests including property-based testing for universal correctness guarantees
 - **Robust CLI Interface**: Full-featured command-line interface with backtesting and reporting
 - **Performance Analysis**: Portfolio metrics and performance tracking with buy-and-hold comparison
 - **Production Ready**: Thoroughly tested with comprehensive error handling
@@ -30,10 +30,10 @@ The strategy follows a simple daily evaluation process:
 
 1. **Calculate Trigger Price**: `rolling_maximum * percentage_trigger` (e.g., 90% of 90-day high)
 2. **Check Yesterday's Price**: Did it drop to or below the trigger price?
-3. **Enforce 28-Day Rule**: Has it been at least 28 days since the last investment?
+3. **Enforce Investment Spacing**: Has it been at least the configured minimum days since the last investment?
 4. **Execute Investment**: If both conditions are met, invest the configured amount
 
-**Example**: If SPY's 90-day high is $500 and your trigger is 90%, the system will invest when the price drops to $450 or below (assuming no recent investments).
+**Example**: If SPY's 90-day high is $500 and your trigger is 90%, the system will invest when the price drops to $450 or below (assuming no recent investments within your configured spacing period).
 
 ## 📦 Installation
 
@@ -309,19 +309,52 @@ poetry run buy-the-dip --backtest --period 2y    # 2 years
 ### Advanced Options
 
 ```bash
-# Use trading days instead of calendar days for rolling window
-poetry run buy-the-dip --count-trading-days --backtest
+# Use custom investment spacing
+poetry run buy-the-dip --min-days-between 7 --backtest  # Weekly investments
+poetry run buy-the-dip --min-days-between 1 --backtest  # Daily investments
 
-# Check multiple tickers with trading days
+# Check multiple tickers with custom spacing
 poetry run buy-the-dip --tickers QQQ SPY AAPL \
   --check \
   --rolling-window 60 \
   --trigger-pct 0.95 \
-  --count-trading-days
+  --min-days-between 14  # Bi-weekly spacing
+
+# Use trading days instead of calendar days for rolling window
+poetry run buy-the-dip --count-trading-days --backtest
+
+# Combine custom spacing with trading days
+poetry run buy-the-dip --min-days-between 7 --count-trading-days --backtest
 
 # Force fresh data (ignore cache)
 poetry run buy-the-dip --ignore-cache --backtest
 ```
+
+### Investment Spacing Configuration
+
+**Default Behavior**: 28-day minimum spacing between investments (monthly)
+
+**Configurable Options**:
+- `min_days_between_investments: 1` - Daily investments allowed
+- `min_days_between_investments: 7` - Weekly investments (every 7 days)
+- `min_days_between_investments: 14` - Bi-weekly investments
+- `min_days_between_investments: 28` - Monthly investments (default)
+
+**CLI Override**: Use `--min-days-between N` to override config file setting
+
+**Examples**:
+```bash
+# Daily investment strategy (aggressive)
+poetry run buy-the-dip --min-days-between 1 --evaluate
+
+# Weekly investment strategy
+poetry run buy-the-dip --min-days-between 7 --backtest --period 1y
+
+# Check if investment would execute with custom spacing
+poetry run buy-the-dip --config config.yaml --min-days-between 14 --evaluate
+```
+
+**Note**: The spacing constraint uses calendar days and is inclusive. For example, `min_days_between_investments: 7` means you can invest again on the 8th day after the last investment.
 
 ### Calendar Days vs Trading Days
 
@@ -387,12 +420,13 @@ The strategy is configured via YAML files. For comprehensive configuration guida
 
 ```yaml
 # config.yaml
-ticker: "SPY"                    # Stock/ETF to monitor
-rolling_window_days: 90          # Days for rolling maximum calculation
-percentage_trigger: 0.90         # Trigger at 90% of rolling max (10% drop)
-monthly_dca_amount: 1000.0       # Dollar amount to invest
-data_cache_days: 30              # Days to cache price data
-use_trading_days: false          # Use calendar days (default) vs trading days
+ticker: "SPY"                           # Stock/ETF to monitor
+rolling_window_days: 90                 # Days for rolling maximum calculation
+percentage_trigger: 0.90                # Trigger at 90% of rolling max (10% drop)
+monthly_dca_amount: 1000.0              # Dollar amount to invest
+min_days_between_investments: 28        # Minimum days between investments (1=daily, 7=weekly, 28=monthly)
+data_cache_days: 30                     # Days to cache price data
+use_trading_days: false                 # Use calendar days (default) vs trading days
 ```
 
 ### Available Example Configurations
@@ -595,7 +629,7 @@ CLI → ConfigurationManager → StrategySystem
 
 ## 🧪 Testing
 
-The system includes comprehensive testing with 233 tests covering all functionality:
+The system includes comprehensive testing with 228 tests covering all functionality:
 
 ### Run Tests Locally with Poetry
 
@@ -620,12 +654,13 @@ poetry run pytest tests/integration/   # Integration tests
 # Recommended: Use the wrapper script for clean output
 ./scripts/run_docker_tests.sh
 
-# Or run docker-compose directly (auto-removes containers when done)
-docker-compose -f docker-compose.test.yml up --abort-on-container-exit --rm
+# Or run docker-compose directly
+docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+docker-compose -f docker-compose.test.yml down
 ```
 
 **What this tests**:
-- ✅ **Unit tests** - All 151 tests across all Python versions
+- ✅ **All tests** - Complete test suite (228 tests: unit, property, integration) across all Python versions
 - ✅ **CLI functionality** - Ensures the CLI works correctly
 - ✅ **Type checking** - Runs mypy to catch type errors
 - ✅ **Code formatting** - Validates black formatting
@@ -654,7 +689,7 @@ Tested versions:
   • Python 3.14 ✅
 
 All checks completed successfully:
-  • Unit tests (151 tests)
+  • All tests (228 tests: unit, property, integration)
   • CLI functionality
   • Type checking (mypy)
   • Code formatting (black)
