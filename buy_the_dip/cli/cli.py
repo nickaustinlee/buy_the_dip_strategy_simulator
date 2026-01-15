@@ -952,6 +952,11 @@ def main() -> None:
 
             # Send notification if requested and buy signals detected
             if args.notify and buy_signal_count > 0:
+                # Get timestamp for title
+                from datetime import datetime
+                current_time = datetime.now()
+                timestamp_str = current_time.strftime("%I:%M %p")
+                
                 # Create compact notification message with results
                 notification_lines = [
                     f"Buy Signals Detected ({buy_signal_count} of {len(results)}):",
@@ -968,17 +973,12 @@ def main() -> None:
                             f"✅ {ticker}: ${price:.2f} (trigger ${trigger:.2f}, {pct:+.1f}%)"
                         )
 
-                # Add timestamp to the notification
-                from datetime import datetime
-
-                current_time = datetime.now()
-                timestamp_str = current_time.strftime("%B %d, %Y @ %I:%M %p Local")
-                notification_lines.append("")
-                notification_lines.append(f"TS: {timestamp_str}")
-
                 # Use actual newlines, not escaped ones
                 notification_message = "\n".join(notification_lines)
-                send_notification("Buy the Dip Alert", notification_message)
+                
+                # Put timestamp in title so it's always visible even if message is truncated
+                title = f"Buy the Dip Alert ({timestamp_str})"
+                send_notification(title, notification_message)
                 logger.info(f"Notification sent with {buy_signal_count} buy signals")
 
             return
