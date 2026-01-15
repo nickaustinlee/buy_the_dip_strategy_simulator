@@ -954,9 +954,9 @@ def main() -> None:
             if args.notify and buy_signal_count > 0:
                 # Create compact notification message with results
                 notification_lines = [
-                    f"Buy Signals Detected ({buy_signal_count} of {len(results)}):"
+                    f"Buy Signals Detected ({buy_signal_count} of {len(results)}):",
+                    ""
                 ]
-                notification_lines.append("")
 
                 for result in results:
                     if result["trigger_met"]:
@@ -976,7 +976,8 @@ def main() -> None:
                 notification_lines.append("")
                 notification_lines.append(f"TS: {timestamp_str}")
 
-                notification_message = "\\n".join(notification_lines)
+                # Use actual newlines, not escaped ones
+                notification_message = "\n".join(notification_lines)
                 send_notification("Buy the Dip Alert", notification_message)
                 logger.info(f"Notification sent with {buy_signal_count} buy signals")
 
