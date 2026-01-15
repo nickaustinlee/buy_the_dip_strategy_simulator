@@ -954,13 +954,14 @@ def main() -> None:
             if args.notify and buy_signal_count > 0:
                 # Get timestamp for title
                 from datetime import datetime
+
                 current_time = datetime.now()
                 timestamp_str = current_time.strftime("%I:%M %p")
-                
+
                 # Create compact notification message with results
                 notification_lines = [
                     f"Buy Signals Detected ({buy_signal_count} of {len(results)}):",
-                    ""
+                    "",
                 ]
 
                 for result in results:
@@ -980,7 +981,7 @@ def main() -> None:
 
                 # Use actual newlines, not escaped ones
                 notification_message = "\n".join(notification_lines)
-                
+
                 # Put timestamp in title so it's always visible even if message is truncated
                 title = f"Buy the Dip Alert ({timestamp_str})"
                 send_notification(title, notification_message)
