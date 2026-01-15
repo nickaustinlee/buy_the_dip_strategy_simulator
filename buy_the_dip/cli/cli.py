@@ -973,6 +973,11 @@ def main() -> None:
                             f"✅ {ticker}: ${price:.2f} (trigger ${trigger:.2f}, {pct:+.1f}%)"
                         )
 
+                # Add truncation note if many signals (macOS has ~256 char limit)
+                if buy_signal_count > 4:
+                    notification_lines.append("")
+                    notification_lines.append("(See terminal for full list)")
+
                 # Use actual newlines, not escaped ones
                 notification_message = "\n".join(notification_lines)
                 
