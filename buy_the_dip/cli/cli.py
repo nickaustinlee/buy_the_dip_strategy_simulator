@@ -45,44 +45,45 @@ def send_notification(title: str, message: str, sound: str = "Glass") -> bool:
         return False
 
 
-def save_results_and_notify(title: str, message: str, detailed_output: str) -> bool:
-    """
-    Save detailed results to a file and send notification with file location.
-
-    Args:
-        title: Notification title
-        message: Short notification message
-        detailed_output: Full output to save to file
-
-    Returns:
-        True if successful
-    """
-    try:
-        # Create results directory
-        results_dir = Path.home() / ".buy_the_dip" / "notifications"
-        results_dir.mkdir(parents=True, exist_ok=True)
-
-        # Save to timestamped file
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        results_file = results_dir / f"buy_signals_{timestamp}.txt"
-
-        with open(results_file, "w") as f:
-            f.write(detailed_output)
-
-        # Send notification - keep message short
-        send_notification(title, message)
-
-        # Log the file location
-        logging.getLogger(__name__).info(f"Results saved to: {results_file}")
-
-        # Print to console so user can easily open it
-        print(f"\n📄 Detailed results saved to: {results_file}")
-        print(f"   Open with: open {results_file}")
-
-        return True
-    except Exception as e:
-        logging.getLogger(__name__).error(f"Failed to save results and notify: {e}")
-        return False
+# NOTE: This function is currently unused but kept for potential future use
+# def save_results_and_notify(title: str, message: str, detailed_output: str) -> bool:
+#     """
+#     Save detailed results to a file and send notification with file location.
+#
+#     Args:
+#         title: Notification title
+#         message: Short notification message
+#         detailed_output: Full output to save to file
+#
+#     Returns:
+#         True if successful
+#     """
+#     try:
+#         # Create results directory
+#         results_dir = Path.home() / ".buy_the_dip" / "notifications"
+#         results_dir.mkdir(parents=True, exist_ok=True)
+#
+#         # Save to timestamped file
+#         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+#         results_file = results_dir / f"buy_signals_{timestamp}.txt"
+#
+#         with open(results_file, "w") as f:
+#             f.write(detailed_output)
+#
+#         # Send notification - keep message short
+#         send_notification(title, message)
+#
+#         # Log the file location
+#         logging.getLogger(__name__).info(f"Results saved to: {results_file}")
+#
+#         # Print to console so user can easily open it
+#         print(f"\n📄 Detailed results saved to: {results_file}")
+#         print(f"   Open with: open {results_file}")
+#
+#         return True
+#     except Exception as e:
+#         logging.getLogger(__name__).error(f"Failed to save results and notify: {e}")
+#         return False
 
 
 def validate_cached_data(
@@ -956,7 +957,7 @@ def main() -> None:
                 from datetime import datetime
 
                 current_time = datetime.now()
-                timestamp_str = current_time.strftime("%I:%M %p")
+                timestamp_str = current_time.strftime("%m-%d %I:%M %p")
 
                 # Create compact notification message with results
                 notification_lines = [
